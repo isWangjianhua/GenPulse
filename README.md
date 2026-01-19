@@ -66,22 +66,37 @@ Poll or listen for updates to get the generated asset URLs.
 
 ## 📦 Installation
 
-1.  **Clone & Install**:
+1.  **Clone the repository**:
     ```bash
     git clone https://github.com/your-org/genpulse.git
     cd genpulse
+    ```
+
+2.  **Start Infrastructure** (Requires Docker):
+    ```bash
+    docker-compose up -d
+    ```
+
+3.  **Install dependencies**:
+    ```bash
     uv sync
     ```
 
-2.  **Configure**:
-    Create `.env` file:
+4.  **Configure Environment**:
+    Create a `.env` file:
     ```ini
-    DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/genpulse
+    DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/genpulse
     REDIS_URL=redis://localhost:6379/0
     STORAGE_TYPE=local # or s3
+    
+    # If using MinIO (S3 Local):
+    # STORAGE_TYPE=s3
+    # S3_ENDPOINT_URL=http://localhost:9000
+    # S3_ACCESS_KEY=minioadmin
+    # S3_SECRET_KEY=minioadmin
     ```
 
-3.  **Run**:
+5.  **Run**:
     ```bash
     # Start API
     uv run uvicorn core.gateway:app --reload
