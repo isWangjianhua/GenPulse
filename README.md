@@ -12,8 +12,8 @@ GenPulse is a robust backend system designed to orchestrate complex Generative A
 
 *   **Task Orchestration**: Efficiently manages long-running AI generation tasks using asynchronous queues (Redis MQ).
 *   **Reliable State Tracking**: Implements a "Double-Sync" mechanism—real-time updates via Redis Pub/Sub for speed, and PostgreSQL persistence for auditability and reliability.
-*   **Unified Storage Layer**: Abstracted asset management that automatically handles file uploads to **Local Storage** (for dev) or **S3/OSS** (for production), returning accessible URLs.
-*   **ComfyUI Integration**: Built-in native support for executing ComfyUI node-based workflows, managing the entire lifecycle from prompt queuing to image retrieval.
+*   **Unified Storage Layer**: Abstracted asset management supporting Local Storage and S3/OSS.
+*   **ComfyUI & Diffusers Native Support**: Choice between node-based ComfyUI workflows or high-performance native `diffusers` pipelines for image generation.
 *   **Scalable Architecture**: decoupled ingestion, dispatching, and execution layers built with **FastAPI**, **SQLAlchemy (Async)**, and **Redis**.
 
 ---
