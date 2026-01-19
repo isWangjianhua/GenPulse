@@ -11,9 +11,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Worker")
 
 class Worker:
-    def __init__(self):
+    def __init__(self, manage_comfy: bool = False):
         self.redis_mgr = RedisManager()
         self.should_run = True
+        self.manage_comfy = manage_comfy
+        self.comfy_mgr = None
 
     def _discover_handlers(self):
         """Automatically import all modules in the handlers/ directory to trigger registration"""
@@ -32,11 +34,10 @@ class Worker:
         from core.config import settings
         from core.process_manager import ComfyProcessManager
         
-        comfy_mgr = None
-        if settings.COMFY_ENABLE_LOCAL:
-            comfy_mgr = ComfyProcessManager(port=settings.COMFY_PORT)
+        if self.manage_comfy or settings.COMFY_ENABLE_LOCAL:
+            self.comfy_mgr = ComfyProcessManager(port=settings.COMFY_PORT)
             try:
-                comfy_mgr.start(cpu_only=settings.COMFY_CPU_ONLY)
+                self.comfy_mgr.start(cpu_only=settings.COMFY_CPU_ONLY)
             except Exception as e:
                 logger.warning(f"Could not start local ComfyUI: {e}")
 
@@ -45,16 +46,26 @@ class Worker:
         
         logger.info(f"Registered handlers: {registry.list_handlers()}")
 
-        while self.should_run:
-            try:
-                # brpop returns (queue_name, data)
-                result = await self.redis_mgr.pop_task(timeout=1)
-                if result:
-                    _, task_json = result
-                    await self.process_task(task_json)
-            except Exception as e:
-                logger.error(f"Error in worker loop: {e}")
-                await asyncio.sleep(1)
+        try:
+            while self.should_run:
+                try:
+                    # brpop returns (queue_name, data)
+                    result = await self.redis_mgr.pop_task(timeout=1)
+                    if result:
+                        _, task_json = result
+                        await self.process_task(task_json)
+                except Exception as e:
+                    if self.should_run:
+                        logger.error(f"Error in worker loop: {e}")
+                        await asyncio.sleep(1)
+        finally:
+            if self.comfy_mgr:
+                self.comfy_mgr.stop()
+            await self.redis_mgr.close()
+            logger.info("Worker shut down.")
+
+    def stop(self):
+        self.should_run = False
 
     async def process_task(self, task_json: str):
         try:
@@ -109,5 +120,25 @@ class Worker:
                 await self.redis_mgr.update_task_status(task_id, "failed", result={"error": str(e)})
 
 if __name__ == "__main__":
-    worker = Worker()
-    asyncio.run(worker.run())
+    import click
+    import signal
+
+    @click.command()
+    @click.option('--with-comfy', is_flag=True, help="Automatically manage local ComfyUI process")
+    def main(with_comfy):
+        worker = Worker(manage_comfy=with_comfy)
+        
+        loop = asyncio.get_event_loop()
+        
+        # Handle termination signals
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: worker.stop())
+            
+        try:
+            loop.run_until_complete(worker.run())
+        except Exception as e:
+            logger.error(f"Worker crashed: {e}")
+        finally:
+            loop.close()
+
+    main()

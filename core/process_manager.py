@@ -39,40 +39,40 @@ class ComfyProcessManager:
                 logger.error(f"Failed to install ComfyUI: {e}")
                 raise
 
+    def configure_model_paths(self):
+        """Configure ComfyUI to use the project root's models directory"""
+        config_path = self.workspace_path / "extra_model_paths.yaml"
+        project_models_path = Path("../../models").as_posix()
+        
+        config_content = f"""
+comfyui:
+    base_path: {project_models_path}
+    checkpoints: checkpoints
+    clip: clip
+    clip_vision: clip_vision
+    configs: configs
+    controlnet: controlnet
+    embeddings: embeddings
+    loras: loras
+    upscale_models: upscale_models
+    vae: vae
+"""
+        with open(config_path, "w") as f:
+            f.write(config_content)
+        logger.info(f"Configured extra model paths at {config_path}")
+
     def start(self, cpu_only: bool = True):
         """Start ComfyUI subprocess"""
         if self.is_running():
             logger.info("ComfyUI is already running.")
             return
 
-        cmd = [
-            "uv", "run", "comfy", 
-            "--workspace", str(self.workspace_path), 
-            "launch", 
-            "--port", str(self.port),
-            "--background" 
-        ]
-        
-        if cpu_only:
-             # comfy launch arguments are passed after -- 
-             # wait, comfy-cli launch might handle it differently.
-             # According to docs, we pass arguments to ComfyUI.
-             # Let's try passing --cpu directly to launch if supported, or via -- --cpu
-             cmd.extend(["--", "--cpu"])
-
-        logger.info(f"Starting ComfyUI with command: {' '.join(cmd)}")
-        
-        # We start it as a detached process or managed subprocess
-        # For now, let's keep it simple: managed subprocess but non-blocking here?
-        # comfy launch --background might detach it.
-        # Let's just use Popen directly on main.py if comfy-cli is complex to wrap
-        
-        # ALTERNATIVE: Direct python launch to have better control
-        # python main.py --port 8188 --cpu
-        
         main_py = self.workspace_path / "main.py"
         if not main_py.exists():
             self.install()
+        
+        # Ensure model paths are configured
+        self.configure_model_paths()
         
         launch_args = ["python", str(main_py), "--port", str(self.port)]
         if cpu_only:

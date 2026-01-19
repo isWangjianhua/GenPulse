@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     AUTO_START_LOCAL_LIBS: bool = True
     
     # ComfyUI Configuration
-    COMFY_ENABLE_LOCAL: bool = True
+    COMFY_ENABLE_LOCAL: bool = False
     COMFY_CPU_ONLY: bool = True
     COMFY_PORT: int = 8188
     
