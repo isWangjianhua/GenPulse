@@ -42,3 +42,11 @@ class DBManager:
         async with async_session() as session:
             result = await session.execute(select(Task).where(Task.task_id == task_id))
             return result.scalars().first()
+
+    @staticmethod
+    async def list_tasks(limit: int = 50) -> list[Task]:
+        async with async_session() as session:
+            result = await session.execute(
+                select(Task).order_by(Task.created_at.desc()).limit(limit)
+            )
+            return list(result.scalars().all())

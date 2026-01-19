@@ -55,11 +55,35 @@ async def create_task(req: TaskRequest):
 @app.get("/task/{task_id}")
 async def get_task_status(task_id: str):
     from core.config import settings
+    # 1. Try Redis
     status_key = f"{settings.redis_prefix}task_status:{task_id}"
     data = await redis_mgr.client.get(status_key)
-    if not data:
-        raise HTTPException(status_code=404, detail="Task not found or expired")
-    return json.loads(data)
+    if data:
+        return json.loads(data)
+        
+    # 2. Try DB
+    task = await DBManager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    return {
+        "task_id": task.task_id,
+        "status": task.status,
+        "progress": task.progress,
+        "result": task.result,
+        "task_type": task.task_type
+    }
+
+@app.get("/task")
+async def list_tasks(limit: int = 50):
+    tasks = await DBManager.list_tasks(limit=limit)
+    return [{
+        "task_id": t.task_id,
+        "task_type": t.task_type,
+        "status": t.status,
+        "progress": t.progress,
+        "created_at": t.created_at
+    } for t in tasks]
 
 @app.get("/health")
 async def health_check():
