@@ -1,0 +1,32 @@
+[project]
+name = "genpulse"
+version = "0.1.0"
+description = "High-concurrency generative AI backend system"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "click>=8.3.1",
+    "fastapi>=0.128.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.2.1",
+    "redis>=7.1.0",
+    "sqlalchemy>=2.0.45",
+    "uvicorn>=0.40.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-mock>=3.15.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+testpaths = ["tests"]
