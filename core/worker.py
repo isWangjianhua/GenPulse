@@ -28,6 +28,18 @@ class Worker:
                     logger.error(f"Failed to load handler {module_name}: {e}")
 
     async def run(self):
+        # Local ComfyUI Management
+        from core.config import settings
+        from core.process_manager import ComfyProcessManager
+        
+        comfy_mgr = None
+        if settings.COMFY_ENABLE_LOCAL:
+            comfy_mgr = ComfyProcessManager(port=settings.COMFY_PORT)
+            try:
+                comfy_mgr.start(cpu_only=settings.COMFY_CPU_ONLY)
+            except Exception as e:
+                logger.warning(f"Could not start local ComfyUI: {e}")
+
         logger.info("Worker starting...")
         self._discover_handlers()
         
