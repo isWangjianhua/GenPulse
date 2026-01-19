@@ -14,9 +14,18 @@ def mock_redis_client():
 
 @pytest.fixture
 def mock_redis_mgr(mock_redis_client, monkeypatch):
-    mgr = RedisManager()
+    mgr = MagicMock(spec=RedisManager)
     mgr.client = mock_redis_client
-    # Patch the class or instance methods if necessary
+    mgr.update_task_status = AsyncMock()
+    mgr.push_task = AsyncMock()
+    mgr.pop_task = AsyncMock()
+    
+    # Patch the class in all relevant modules
+    monkeypatch.setattr("core.gateway.RedisManager", lambda: mgr)
+    monkeypatch.setattr("core.worker.RedisManager", lambda: mgr)
+    monkeypatch.setattr("core.mq.RedisManager", lambda: mgr)
+    
+    # Also patch instances if they already exist
     monkeypatch.setattr("core.gateway.redis_mgr", mgr)
     return mgr
 

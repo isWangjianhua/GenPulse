@@ -13,6 +13,18 @@ class Settings(BaseSettings):
     # Database Configuration
     DATABASE_URL: Optional[str] = "postgresql+asyncpg://postgres:postgres@localhost:5432/genpulse"
     
+    # Storage Configuration
+    STORAGE_TYPE: str = "local"  # local, s3
+    STORAGE_LOCAL_PATH: str = "data/assets"
+    STORAGE_BASE_URL: str = "http://localhost:8000/assets"
+    
+    # S3 Configuration
+    S3_ENDPOINT_URL: Optional[str] = None
+    S3_ACCESS_KEY: Optional[str] = None
+    S3_SECRET_KEY: Optional[str] = None
+    S3_BUCKET_NAME: Optional[str] = "genpulse"
+    S3_REGION_NAME: Optional[str] = "us-east-1"
+
     # Local Libs Configuration
     AUTO_START_LOCAL_LIBS: bool = True
     

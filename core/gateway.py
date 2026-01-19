@@ -3,10 +3,18 @@ import json
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
+from fastapi.staticfiles import StaticFiles
 from core.mq import RedisManager
 from core.db_manager import DBManager
+from core.config import settings
+import os
 
 app = FastAPI(title="GenPulse API")
+
+# Mount static files for assets
+os.makedirs(settings.STORAGE_LOCAL_PATH, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=settings.STORAGE_LOCAL_PATH), name="assets")
+
 redis_mgr = RedisManager()
 
 class TaskRequest(BaseModel):
