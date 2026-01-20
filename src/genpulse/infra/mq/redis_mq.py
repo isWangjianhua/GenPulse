@@ -9,8 +9,8 @@ class RedisMQ(BaseMQ):
     def __init__(self):
         self.redis_url = config.REDIS_URL
         self.client = redis.from_url(self.redis_url, decode_responses=True)
-        self.prefix = config.REDIS_PREFIX
-        self.queue_name = f"{self.prefix}{config.REDIS_TASK_QUEUE_NAME}"
+        self.queue_name = config.TASK_QUEUE_NAME
+        self.status_prefix = config.TASK_STATUS_PREFIX
 
     async def ping(self) -> bool:
         return await self.client.ping()
@@ -22,11 +22,11 @@ class RedisMQ(BaseMQ):
         return await self.client.brpop(self.queue_name, timeout=timeout)
 
     async def publish_event(self, task_id: str, event_data: dict):
-        channel = f"{self.prefix}task_updates:{task_id}"
+        channel = f"{config.REDIS_PREFIX}task_updates:{task_id}"
         await self.client.publish(channel, json.dumps(event_data))
 
     async def update_task_status(self, task_id: str, status: str, result: dict = None, progress: int = None):
-        status_key = f"{self.prefix}task_status:{task_id}"
+        status_key = f"{self.status_prefix}{task_id}"
         data = {"status": status, "updated_at": time.time()}
         if result: data["result"] = result
         if progress is not None: data["progress"] = progress
@@ -35,7 +35,7 @@ class RedisMQ(BaseMQ):
         await self.publish_event(task_id, data)
 
     async def get_task_status(self, task_id: str) -> Optional[dict]:
-        status_key = f"{self.prefix}task_status:{task_id}"
+        status_key = f"{self.status_prefix}{task_id}"
         data = await self.client.get(status_key)
         if data:
             return json.loads(data)

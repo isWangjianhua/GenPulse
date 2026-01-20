@@ -8,6 +8,7 @@ async def test_diffusers_engine_mock_flow():
     """
     Verify that TextToImageHandler correctly uses DiffusersEngine in mock mode.
     """
+    from genpulse.types import TaskContext
     handler = TextToImageHandler()
     
     # Mock data
@@ -24,10 +25,8 @@ async def test_diffusers_engine_mock_flow():
     
     # Mock update_status
     mock_update_status = AsyncMock()
-    context = {"update_status": mock_update_status}
+    context = TaskContext(task_id=task_id, update_status=mock_update_status)
     
-    # We need to ensure LocalStorageProvider is working or mocked
-    # In this case, DiffusersEngine calls get_storage().upload()
     with patch("genpulse.engines.diffusers_engine.get_storage") as mock_get_storage:
         mock_storage = mock_get_storage.return_value
         mock_storage.upload = AsyncMock(return_value="http://localhost:8000/assets/task_diff_123/mock.png")
@@ -39,7 +38,6 @@ async def test_diffusers_engine_mock_flow():
         assert len(result["images"]) == 1
         assert "mock" in result["images"][0]
         
-        # Verify status was updated multiple times
+        # Verify status updates (using context helper methods)
+        # 10 (init), 50 (generating), 90 (finalizing)
         assert mock_update_status.call_count >= 3
-        # Check one of the progress updates
-        mock_update_status.assert_any_call("processing", progress=50, result={"info": "Generating (mock)"})

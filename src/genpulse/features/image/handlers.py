@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from genpulse.features.base import BaseHandler
 from genpulse.features.registry import registry
 from genpulse import config
+from genpulse.types import TaskContext
 
 # --- Helpers / Lazy Imports ---
 # We keep these separate to avoid dependency hell if a user doesn't use a specific provider
@@ -31,10 +32,9 @@ class TextToImageHandler(BaseHandler):
             return False
         return True
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
         provider = params.get("provider", config.DEFAULT_IMAGE_PROVIDER).lower()
-        update_status = context.get("update_status")
         
         logger.info(f"Executing Text-to-Image via {provider}")
         
@@ -46,7 +46,7 @@ class TextToImageHandler(BaseHandler):
             try:
                 response = await client.generate_image(params)
                 if response.error:
-                     raise Exception(response.error.message)
+                    raise Exception(response.error.message)
                 return {"status": "succeeded", "data": response.model_dump(), "provider": "volcengine"}
             except Exception as e:
                 logger.error(f"VolcEngine T2I failed: {e}")
@@ -82,7 +82,7 @@ class ImageToImageHandler(BaseHandler):
     def validate_params(self, params: Dict[str, Any]) -> bool:
         return ("image" in params or "image_url" in params)
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
         provider = params.get("provider", config.DEFAULT_IMAGE_PROVIDER).lower()
         

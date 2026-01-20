@@ -53,56 +53,73 @@ class Worker:
         self.should_run = False
 
     async def process_task(self, task_json: str):
+        from genpulse.types import TaskContext, TaskStatus, EngineError
+        
+        task_data = {}
         try:
             task_data = json.loads(task_json)
             task_id = task_data.get("task_id")
             task_type = task_data.get("task_type")
             params = task_data.get("params", {})
 
-            logger.info(f"Processing task {task_id} of type {task_type}")
-
-            HandlerClass = registry.get_handler(task_type)
-            if not HandlerClass:
-                logger.error(f"No handler registered for type: {task_type}")
-                await self.mq.update_task_status(task_id, "failed", result={"error": "Handler not found"})
-                return
-
-            # Update status to processing
-            await self.mq.update_task_status(task_id, "processing", progress=0)
-
-            handler = HandlerClass()
-            
-            # Helper to allow handler to update status/progress
-            async def update_status(status: str, progress: int = None, result: dict = None):
-                # Update MQ Cache
+            # Helper to allow handler/engine to update status/progress
+            async def update_status_func(status: str, progress: int = None, result: dict = None):
+                # Update MQ Cache for real-time status query
                 await self.mq.update_task_status(task_id, status, result=result, progress=progress)
-                # Update DB
+                # Update DB for persistence
                 try:
                     await DBManager.update_task(task_id, status, progress=progress, result=result)
                 except Exception as e:
                     logger.error(f"Failed to update task {task_id} in DB: {e}")
 
+            context = TaskContext(
+                task_id=task_id,
+                update_status=update_status_func
+            )
+
+            logger.info(f"Processing task {task_id} ({task_type})")
+
+            HandlerClass = registry.get_handler(task_type)
+            if not HandlerClass:
+                logger.error(f"No handler registered for type: {task_type}")
+                await context.set_failed(f"Handler for {task_type} not found")
+                return
+
+            # Update status to processing (init)
+            await context.set_processing(progress=0, info="Started")
+
+            handler = HandlerClass()
+            
             # 1. Validate
             if not handler.validate_params(params):
                 logger.error(f"Validation failed for task {task_id}")
-                await update_status("failed", result={"error": "Validation failed"})
+                await context.set_failed("Parameter validation failed")
                 return
 
             # 2. Execute
-            context = {
-                "task_id": task_id,
-                "update_status": update_status
-            } 
             result = await handler.execute(task_data, context)
             
             # Final completion update
-            await update_status("completed", progress=100, result=result)
+            await update_status_func(TaskStatus.COMPLETED, progress=100, result=result)
             logger.info(f"Task {task_id} completed successfully")
 
         except Exception as e:
-            logger.error(f"Failed to process task: {e}")
-            if 'task_id' in locals():
-                await self.mq.update_task_status(task_id, "failed", result={"error": str(e)})
+            msg = str(e)
+            logger.exception(f"Failed to process task: {msg}")
+            
+            # Attempt to update status to failed if we have a task_id
+            if 'task_id' in locals() and task_data:
+                try:
+                    # If it's an EngineError, we might have more details
+                    error_details = {"error": msg}
+                    if isinstance(e, EngineError):
+                        error_details.update(e.details)
+                        error_details["provider"] = e.provider
+                    
+                    await self.mq.update_task_status(task_data["task_id"], TaskStatus.FAILED, result=error_details)
+                    await DBManager.update_task(task_data["task_id"], TaskStatus.FAILED, result=error_details)
+                except Exception as db_err:
+                    logger.error(f"Double fault: failed to update fail status in DB: {db_err}")
 
 # The Worker class is now used by worker/__main__.py or other entry points.
 

@@ -54,10 +54,10 @@ class S3StorageProvider(BaseStorage):
             import boto3
             self.s3 = boto3.client(
                 's3',
-                endpoint_url=config.S3_ENDPOINT_URL,
-                aws_access_key_id=config.S3_ACCESS_KEY,
-                aws_secret_access_key=config.S3_SECRET_KEY,
-                region_name=config.S3_REGION_NAME
+                endpoint_url=config.settings.get("S3_ENDPOINT_URL"),
+                aws_access_key_id=config.settings.get("S3_ACCESS_KEY"),
+                aws_secret_access_key=config.settings.get("S3_SECRET_KEY"),
+                region_name=config.settings.get("S3_REGION_NAME", "us-east-1")
             )
         except ImportError:
             # Allow initialization to succeed but fail during upload if boto3 is missing
@@ -71,23 +71,26 @@ class S3StorageProvider(BaseStorage):
         if content_type:
             extra_args['ContentType'] = content_type
             
-        # upload_fileobj is a synchronous call in boto3, 
-        # for a high-concurrency app we'd normally use aiobotocore
+        bucket = config.settings.get("S3_BUCKET_NAME", "genpulse")
         self.s3.upload_fileobj(
             content,
-            config.S3_BUCKET_NAME,
+            bucket,
             file_path,
             ExtraArgs=extra_args
         )
         
-        if config.S3_ENDPOINT_URL:
-            return f"{config.S3_ENDPOINT_URL}/{config.S3_BUCKET_NAME}/{file_path}"
-        return f"https://{config.S3_BUCKET_NAME}.s3.{config.S3_REGION_NAME}.amazonaws.com/{file_path}"
+        endpoint = config.settings.get("S3_ENDPOINT_URL")
+        if endpoint:
+            return f"{endpoint.rstrip('/')}/{bucket}/{file_path}"
+        
+        region = config.settings.get("S3_REGION_NAME", "us-east-1")
+        return f"https://{bucket}.s3.{region}.amazonaws.com/{file_path}"
 
     async def delete(self, file_path: str) -> bool:
         if not self.s3:
             return False
-        self.s3.delete_object(Bucket=config.S3_BUCKET_NAME, Key=file_path)
+        bucket = config.settings.get("S3_BUCKET_NAME", "genpulse")
+        self.s3.delete_object(Bucket=bucket, Key=file_path)
         return True
 
 _storage_instance: Optional[BaseStorage] = None

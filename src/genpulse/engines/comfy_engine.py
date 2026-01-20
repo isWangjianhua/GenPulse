@@ -16,28 +16,27 @@ class ComfyEngine(BaseEngine):
             return False
         return True
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
         workflow = params["workflow"]
         # Allow override from params, but default to config
         base_url = params.get("server_address", config.COMFY_URL)
-        update_status = context["update_status"]
         
         client = ComfyClient(base_url=base_url)
         storage = get_storage()
         
         try:
             # 1. Queue Prompt
-            await update_status("processing", progress=10, result={"info": "Queuing to ComfyUI"})
+            await context.update_status("processing", progress=10, result={"info": "Queuing to ComfyUI"})
             prompt_id = await client.queue_prompt(workflow)
             logger.info(f"Task {task['task_id']} queued to ComfyUI as {prompt_id}")
             
             # 2. Wait for completion
-            await update_status("processing", progress=30, result={"info": "Waiting for generation"})
+            await context.update_status("processing", progress=30, result={"info": "Waiting for generation"})
             images = await client.wait_for_completion(prompt_id)
             
             # 3. Handle results
-            await update_status("processing", progress=80, result={"info": "Uploading results"})
+            await context.update_status("processing", progress=80, result={"info": "Uploading results"})
             urls = []
             for i, img_bytes in enumerate(images):
                 # Generate a unique path for the result

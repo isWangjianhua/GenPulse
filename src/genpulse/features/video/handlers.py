@@ -4,6 +4,7 @@ from typing import Dict, Any
 from genpulse.features.base import BaseHandler
 from genpulse.features.registry import registry
 from genpulse import config
+from genpulse.types import TaskContext
 
 def get_volc_client():
     try:
@@ -18,10 +19,9 @@ class TextToVideoHandler(BaseHandler):
         # Relaxed validation to support multiple providers
         return True
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
         provider = params.get("provider", config.DEFAULT_VIDEO_PROVIDER).lower()
-        update_status = context.get("update_status")
         
         logger.info(f"Executing Text-to-Video via {provider}")
         
@@ -30,10 +30,7 @@ class TextToVideoHandler(BaseHandler):
             
             # Define callback to bridge Client progress to Worker progress
             async def callback(resp):
-                if update_status:
-                    # Map 'running' to 'processing'
-                    # You could also add percentage logic if the API supported it
-                    await update_status("processing", result={"api_status": resp.status})
+                    await context.update_status("processing", result={"api_status": resp.status})
 
             # VolcEngine requires 'content' list for T2V, but maybe user sent 'prompt'
             # Let's do a simple adapter if needed
@@ -66,16 +63,14 @@ class ImageToVideoHandler(BaseHandler):
     def validate_params(self, params: Dict[str, Any]) -> bool:
         return True
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
         provider = params.get("provider", config.DEFAULT_VIDEO_PROVIDER).lower()
-        update_status = context.get("update_status")
         
         if provider == "volcengine":
             client = get_volc_client()
             async def callback(resp):
-                if update_status:
-                    await update_status("processing", result={"api_status": resp.status})
+                    await context.update_status("processing", result={"api_status": resp.status})
             
             # Simple Adapter for I2V
             # If user provided 'image_url' but Volc needs 'content' list
@@ -102,6 +97,6 @@ class VideoToVideoHandler(BaseHandler):
     # Placeholder for future expansion
      def validate_params(self, params: Dict[str, Any]) -> bool:
         return True
-     async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+     async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
          raise NotImplementedError("Video-to-Video not yet configured")
 

@@ -1,19 +1,21 @@
 import io
 import uuid
+import asyncio
 from typing import Dict, Any, Optional
 from loguru import logger
 from genpulse.engines.base import BaseEngine
 from genpulse.infra.storage import get_storage
 from genpulse.features.registry import registry
+from genpulse.types import TaskContext, EngineError
 
-# Global cache for pipelines
-_PIPELINE_CACHE = {}
+# Global cache for pipelines to avoid repeated loading
+_PIPELINE_CACHE: Dict[str, Any] = {}
 
 @registry.register("diffusers")
 class DiffusersEngine(BaseEngine):
     """
-    Simple Diffusers Engine for local inference.
-    Supports basic text-to-image pipeline.
+    Standardized Diffusers Engine.
+    Provides a mock mode for testing and a structured path for real pipeline execution.
     """
 
     def validate_params(self, params: Dict[str, Any]) -> bool:
@@ -22,49 +24,64 @@ class DiffusersEngine(BaseEngine):
             return False
         return True
 
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task.get("params", {})
-        model_id = params.get("model_id")
+        model_id = params.get("model_id", "mock").lower()
         prompt = params["prompt"]
-        update_status = context["update_status"]
         
-        # 1. Pipeline initialization logic
-        # For this "simple" version, we assume the user might provide a local path
-        # If not provided and we aren't in a real environment, we'll avoid downloading.
-        
-        logger.info(f"Diffusers execution started Task={task['task_id']} Model={model_id}")
-        await update_status("processing", progress=10, result={"info": "Initializing engine"})
+        logger.info(f"Diffusers execution started Task={context.task_id} Model={model_id}")
+        await context.set_processing(progress=10, info="Initializing engine")
 
-        # --- MOCK LOGIC FOR SIMPLE IMPLEMENTATION ---
-        # If model_id is "mock", we return a fake image to avoid downloading GBs of data
-        if model_id == "mock":
-            logger.debug("Running in MOCK mode to avoid downloading models")
-            await update_status("processing", progress=50, result={"info": "Generating (mock)"})
+        try:
+            if model_id == "mock":
+                return await self._execute_mock(task, context)
             
-            # Create a simple 1x1 color pixel or similar
-            from PIL import Image
-            img = Image.new('RGB', (512, 512), color = (73, 109, 137))
-            
-            storage = get_storage()
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='PNG')
-            img_byte_arr.seek(0)
-            
-            file_path = f"{task['task_id']}/diff_mock_{uuid.uuid4().hex[:8]}.png"
-            url = await storage.upload(file_path, img_byte_arr, content_type="image/png")
-            
-            await update_status("processing", progress=90, result={"info": "Finalizing"})
-            return {
-                "images": [url],
-                "model": "mock-sd",
-                "provider": "diffusers"
-            }
+            # Placeholder for real inference
+            return await self._execute_real(task, context, model_id, prompt, params)
+
+        except Exception as e:
+            logger.error(f"Diffusers engine failed: {e}")
+            raise EngineError(f"Diffusers execution error: {str(e)}", provider="diffusers")
+
+    async def _execute_mock(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
+        """Fast mock execution path for development"""
+        logger.debug("Running in MOCK mode")
+        await context.set_processing(progress=50, info="Generating (mock)")
         
-        # 2. Real Pipeline Logic (Implicitly disabled if model_id is not mock for now)
-        # In a real scenario, you'd use:
-        # from diffusers import StableDiffusionPipeline
-        # pipe = StableDiffusionPipeline.from_pretrained(...)
-        # For now, we raise a helpful error to avoid unintended downloads
-        msg = f"Model ID '{model_id}' requires download. Run with model_id='mock' for testing."
-        logger.error(msg)
-        raise ValueError(msg)
+        # Simulate some async work
+        await asyncio.sleep(0.5)
+
+        from PIL import Image
+        img = Image.new('RGB', (512, 512), color=(73, 109, 137))
+        
+        storage = get_storage()
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        file_path = f"{context.task_id}/diff_mock_{uuid.uuid4().hex[:8]}.png"
+        url = await storage.upload(file_path, img_byte_arr, content_type="image/png")
+        
+        await context.set_processing(progress=90, info="Finalizing")
+        return {
+            "images": [url],
+            "model": "mock-sd",
+            "provider": "diffusers"
+        }
+
+    async def _execute_real(self, task: Dict[str, Any], context: TaskContext, model_id: str, prompt: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Real inference path (currently blocked to avoid downloads)"""
+        # In the future, this will import diffusers and run stable diffusion
+        msg = f"Model ID '{model_id}' requires download. Run with model_id='mock' for local testing."
+        raise EngineError(msg, provider="diffusers")
+
+    async def _get_pipeline(self, model_id: str):
+        """Helper to load and cache pipelines"""
+        if model_id in _PIPELINE_CACHE:
+            return _PIPELINE_CACHE[model_id]
+        
+        # import diffusers ...
+        # pipe = StableDiffusionPipeline.from_pretrained(model_id)
+        # _PIPELINE_CACHE[model_id] = pipe
+        # return pipe
+        raise NotImplementedError("Real pipeline loading not enabled yet")

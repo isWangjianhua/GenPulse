@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+from genpulse.types import TaskContext
 
 class BaseEngine(ABC):
     """
@@ -14,7 +15,11 @@ class BaseEngine(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the generation task."""
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
+        """
+        Execute the generation task.
+        :param task: The full task dictionary.
+        :param context: TaskContext for status updates and ID access.
+        """
         pass
 
