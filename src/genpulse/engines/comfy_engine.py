@@ -4,14 +4,15 @@ import logging
 from typing import Dict, Any
 from genpulse.engines.base import BaseEngine
 from genpulse.clients.comfyui.client import ComfyClient
+from genpulse.infra.storage import get_storage
+from genpulse.features.registry import registry
 from genpulse import config
 
-# ... (imports)
+logger = logging.getLogger("ComfyEngine")
 
-# @registry.register("comfyui")
+@registry.register("comfyui")
 class ComfyEngine(BaseEngine):
     def validate_params(self, params: Dict[str, Any]) -> bool:
-        # ... (unchanged)
         if "workflow" not in params:
             logger.error("Missing 'workflow' in params")
             return False
@@ -34,7 +35,6 @@ class ComfyEngine(BaseEngine):
             logger.info(f"Task {task['task_id']} queued to ComfyUI as {prompt_id}")
             
             # 2. Wait for completion
-            # Simple progress update - in a real world scenarios we'd parse the WS progress
             await update_status("processing", progress=30, result={"info": "Waiting for generation"})
             images = await client.wait_for_completion(prompt_id)
             
@@ -43,7 +43,7 @@ class ComfyEngine(BaseEngine):
             urls = []
             for i, img_bytes in enumerate(images):
                 # Generate a unique path for the result
-                # Format: {task_id}/result_{index}.png
+                # Format: {task_id}/out_{index}_{uuid}.png
                 file_path = f"{task['task_id']}/out_{i}_{uuid.uuid4().hex[:8]}.png"
                 url = await storage.upload(file_path, io.BytesIO(img_bytes), content_type="image/png")
                 urls.append(url)
