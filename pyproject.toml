@@ -20,9 +20,15 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "torch>=2.9.1",
     "transformers>=4.57.6",
+    "tencentcloud-sdk-python-vod>=3.0.1340",
+    "baidubce>=0.8.99",
     "uvicorn>=0.40.0",
     "websockets>=16.0",
+    "pyyaml>=6.0.2",
 ]
+
+[project.scripts]
+genpulse = "genpulse.cli:cli"
 
 [dependency-groups]
 dev = [
@@ -32,8 +38,11 @@ dev = [
     "pytest-mock>=3.15.1",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-pythonpath = ["."]
+pythonpath = ["src"]
 testpaths = ["tests"]
