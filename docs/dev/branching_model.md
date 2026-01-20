@@ -49,7 +49,7 @@ GenPulse uses **Dynaconf** for a professional, layered configuration management 
 ```python
 # genpulse/config.py
 from dynaconf import Dynaconf
-settings = Dynaconf(envvar_prefix="GENPULSE", settings_files=["config.yaml"])
+settings = Dynaconf(envvar_prefix="GENPULSE", settings_files=["config/config.yaml"])
 ```
 
 

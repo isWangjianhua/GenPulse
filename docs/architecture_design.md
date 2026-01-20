@@ -86,17 +86,30 @@ class BaseHandler(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, task: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         """
         Core execution logic.
-        Context provides generic capabilities like `update_status()`.
+        Context provides strongly-typed capabilities like `context.set_processing()`.
         """
         pass
 ```
 
-### 3.2 Unified Task Model
+### 3.2 Unified Task Model & Context
 
 Task types are no longer tied to specific implementations but represent "What" the user wants to do. The "How" is specified via a `provider` inside `params`.
+
+**TaskContext**:
+Instead of passing raw dictionaries, we use a `TaskContext` object to ensure type safety and consistent status updates.
+
+```python
+@dataclass
+class TaskContext:
+    task_id: str
+    update_status: Callable[...] 
+    
+    async def set_processing(self, progress: int, info: str = None): ...
+    async def set_failed(self, error: str): ...
+```
 
 ```json
 {
@@ -137,7 +150,18 @@ The Worker contains no domain-specific logic; it merely acts as a bridge:
     2.  Use the `provider` pattern to switch between internal engines.
     3.  Register new task types as needed.
 
-### 3.5 Communication / Data Flow
+### 3.5 Error Handling Strategy
+
+The system employs a unified error handling capability primarily driven by the **`EngineError`** exception hierarchy.
+
+1.  **Detection**: Engines raise `EngineError(message, provider="...")` when underlying calls fail.
+2.  **Capture**: The Worker wraps the entire execution block in a robust `try/except`.
+3.  **Reporting**: On catching an exception, the Worker automatically:
+    -   Logs the full stack trace with `loguru`.
+    -   Updates Redis/DB status to `FAILED`.
+    -   Propagates the error message and provider details to the result payload.
+
+### 3.6 Communication / Data Flow
 
 #### Method A: HTTP (For End Users)
 1.  **Submit**: `POST /task` -> Return `{ "status": "pending", "task_id": "xyz", ... }`.
