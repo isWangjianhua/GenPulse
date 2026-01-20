@@ -114,6 +114,12 @@ wheels = [
 ]
 
 [[package]]
+name = "baidubce"
+version = "0.8.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/7d/18c6454b13e8d0075a2ee3852dabf0849ec365ffe99bc26914c699b4ddd4/baidubce-0.8.3.zip", hash = "sha256:276a407c4221944c2e42c6f658c641f528f676a07355d3c74983f9a6d4b3f3e4", size = 28225, upload-time = "2015-05-30T12:54:43.764Z" }
+
+[[package]]
 name = "binaryornot"
 version = "0.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -319,6 +325,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dynaconf"
+version = "3.2.12"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/bd/7a6f84b68268fe1d12e709faec7d293e0c37c9c03bacaf363de41e7e7568/dynaconf-3.2.12.tar.gz", hash = "sha256:29cea583b007d890e6031fa89c0ac489b631c73dbee83bcd5e6f97602c26354e", size = 313801, upload-time = "2025-10-10T19:54:06.164Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/26/68/51adede38ab2ee9ecfddb8b60a80a42b618a72f1018fcf60974e5d852831/dynaconf-3.2.12-py2.py3-none-any.whl", hash = "sha256:eb2a11865917dff8810c6098cd736b8f4d2f4e39ad914500e2dfbe064b82c499", size = 237788, upload-time = "2025-10-10T19:54:03.731Z" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.128.0"
 source = { registry = "https://pypi.org/simple" }
@@ -358,17 +373,21 @@ source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "asyncpg" },
+    { name = "baidubce" },
     { name = "boto3" },
     { name = "click" },
     { name = "comfy-cli" },
     { name = "diffusers" },
+    { name = "dynaconf" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "redis" },
     { name = "sqlalchemy" },
+    { name = "tencentcloud-sdk-python-vod" },
     { name = "torch" },
     { name = "transformers" },
     { name = "uvicorn" },
@@ -387,17 +406,21 @@ dev = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.12.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "baidubce", specifier = ">=0.8.3" },
     { name = "boto3", specifier = ">=1.42.30" },
     { name = "click", specifier = ">=8.3.1" },
     { name = "comfy-cli", specifier = ">=1.3.8" },
     { name = "diffusers", specifier = ">=0.36.0" },
+    { name = "dynaconf", specifier = ">=3.2.6" },
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "redis", specifier = ">=7.1.0" },
     { name = "sqlalchemy", specifier = ">=2.0.45" },
+    { name = "tencentcloud-sdk-python-vod", specifier = ">=3.0.1340" },
     { name = "torch", specifier = ">=2.9.1" },
     { name = "transformers", specifier = ">=4.57.6" },
     { name = "uvicorn", specifier = ">=0.40.0" },
@@ -1588,6 +1611,30 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "tencentcloud-sdk-python-common"
+version = "3.1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7b/27/bb5da0cd7164360857579ef2ab95d811bf7cab17bdc05cc984bf1eaa800c/tencentcloud_sdk_python_common-3.1.33.tar.gz", hash = "sha256:ebace1324bda6f57c1560ae720f59a4c2002cbc6e14407f61d4b6216742c53b1", size = 22687, upload-time = "2026-01-18T21:06:29.074Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/50/bac17634c7504a956d75bc4f60ab04ad2f516084a352480499338b2d8cb7/tencentcloud_sdk_python_common-3.1.33-py2.py3-none-any.whl", hash = "sha256:c73bfebacc3a5872aa59adf7db5d684939464dedd063c48d5a223a046ce1774a", size = 34260, upload-time = "2026-01-18T21:06:27.345Z" },
+]
+
+[[package]]
+name = "tencentcloud-sdk-python-vod"
+version = "3.1.33"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tencentcloud-sdk-python-common" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/59/db/3370f3c626268980ecaed21b0398793ab06588ea53a0916ff29c15b9552b/tencentcloud_sdk_python_vod-3.1.33.tar.gz", hash = "sha256:f7a475004cb9bbae88179ec5406f189adac2e50563edb7a76d2df5a2dd30aec9", size = 354005, upload-time = "2026-01-18T21:10:32.595Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/24/0c273f403d10d28bf7fbe1fad780bb0aca283d116fc00a6d7b9edb82242f/tencentcloud_sdk_python_vod-3.1.33-py2.py3-none-any.whl", hash = "sha256:7e84b01c1f2309d0064b03ab45e84a240fe44c27ba5a415b31ca9a74541c1876", size = 361378, upload-time = "2026-01-18T21:10:29.629Z" },
 ]
 
 [[package]]

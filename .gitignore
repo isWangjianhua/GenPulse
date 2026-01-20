@@ -109,6 +109,7 @@ celerybeat.pid
 # Environments
 .env
 .env.*
+!.env.example
 .venv
 env/
 venv/
@@ -152,7 +153,18 @@ cython_debug/
 worktrees/
 *.txt
 *.log
-/libs/comfyui/
-/models/
+/libs/ComfyUI/
+
+# Ignore large model files by extensions
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+*.gguf
+*.engine
+
+# Data folders
 /data/
 /data/assets/

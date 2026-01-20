@@ -8,7 +8,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 # It will automatically look for config.yaml and .env files
 settings = Dynaconf(
     envvar_prefix="GENPULSE",      # Look for GENPULSE_VAR in .env/Shell
-    settings_files=["config.yaml"], # Load shared defaults
+    settings_files=["config/config.yaml"], # Load shared defaults from config folder
     environments=True,             # Enable [default, development, production] sections
     load_dotenv=True,              # Allow .env files
     env_switcher="ENV_FOR_DYNACONF", # Change env via ENV_FOR_DYNACONF=production
