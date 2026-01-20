@@ -1,8 +1,8 @@
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
-from infra.mq.redis_mq import RedisMQ
-from infra.database.manager import DBManager
+from genpulse.infra.mq.redis_mq import RedisMQ
+from genpulse.infra.database.manager import DBManager
 
 @pytest.fixture
 def mock_redis_client():
@@ -21,12 +21,10 @@ def mock_redis_mgr(mock_redis_client, monkeypatch):
     mgr.pop_task = AsyncMock()
     
     # Patch the class in all relevant modules
-    monkeypatch.setattr("api.main.RedisManager", lambda: mgr)
-    monkeypatch.setattr("worker.main.RedisManager", lambda: mgr)
-    monkeypatch.setattr("infra.mq.redis_mq.RedisMQ", lambda: mgr)
+    monkeypatch.setattr("genpulse.features.task.router.get_mq", lambda: mgr)
+    monkeypatch.setattr("genpulse.worker.get_mq", lambda: mgr)
+    monkeypatch.setattr("genpulse.infra.mq.get_mq", lambda: mgr)
     
-    # Also patch instances if they already exist
-    monkeypatch.setattr("api.main.mq", mgr)
     return mgr
 
 @pytest.fixture
@@ -34,6 +32,10 @@ async def mock_db_manager(monkeypatch):
     mock_db = AsyncMock(spec=DBManager)
     mock_db.create_task.return_value = MagicMock(task_id="test_uuid")
     mock_db.update_task.return_value = None
-    monkeypatch.setattr("api.main.DBManager", mock_db)
-    monkeypatch.setattr("worker.main.DBManager", mock_db)
+    
+    # Patch DBManager in routers and workers
+    monkeypatch.setattr("genpulse.features.task.router.DBManager", mock_db)
+    monkeypatch.setattr("genpulse.worker.DBManager", mock_db)
+    monkeypatch.setattr("genpulse.infra.database.manager.DBManager", mock_db)
+    
     return mock_db

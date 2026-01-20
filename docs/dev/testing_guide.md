@@ -56,10 +56,10 @@ async def test_my_handler(mock_redis_mgr, mock_db_manager):
         "params": {"provider": "comfyui", "prompt": "a test prompt", "workflow": {}}
     })
     
-    await worker.process_single_task(task_json) # Internal method
+    await worker.process_task(task_json) # Core processing method
     
     # Verify DB/Redis updates
-    mock_db_manager.update_task_status.assert_called()
+    mock_db_manager.update_task.assert_called()
 ```
 
 ## 5. Local Infrastructure Testing

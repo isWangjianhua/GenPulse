@@ -30,17 +30,26 @@ Environments are controlled via `ENV` variable and `.env` files.
 
 ## 3. Configuration Management
 
-We use `pydantic-settings` to manage configurations across environments.
+GenPulse uses **Dynaconf** for a professional, layered configuration management system.
+
+### A. `.env` (Environment-Specific & Secrets)
+- **Prefix**: All variables must start with `GENPULSE_` (e.g., `GENPULSE_REDIS__URL`).
+- **Environment Switcher**: Use `ENV_FOR_DYNACONF` (options: `development`, `testing`, `production`).
+- **Git**: Never committed. Manage via `.env.example`.
+
+### B. `config.yaml` (Layered Defaults)
+- **Sections**: Uses `default`, `development`, `production` headers.
+- **Git**: Committed to the repository.
+- **Content**: Non-sensitive shared logic and fallback values.
+
+### C. Resolution Logic & Validation
+1. **Validation**: Critical variables like `DATABASE_URL` are validated on startup using Dynaconf Validators.
+2. **Merging**: Settings are merged across layers: `config.yaml [default]` -> `config.yaml [env]` -> `.env` -> `Environment Variables`.
 
 ```python
 # genpulse/config.py
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    ENV: str = "dev"
-    REDIS_URL: str = "redis://localhost:6379/0"
-    DATABASE_URL: str = "postgresql+asyncpg://user:pass@localhost/genpulse"
-    
-    class Config:
-        env_file = ".env"
+from dynaconf import Dynaconf
+settings = Dynaconf(envvar_prefix="GENPULSE", settings_files=["config.yaml"])
 ```
+
+

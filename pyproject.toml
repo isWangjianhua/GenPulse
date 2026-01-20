@@ -25,6 +25,7 @@ dependencies = [
     "uvicorn>=0.40.0",
     "websockets>=16.0",
     "pyyaml>=6.0.2",
+    "dynaconf>=3.2.6",
 ]
 
 [project.scripts]

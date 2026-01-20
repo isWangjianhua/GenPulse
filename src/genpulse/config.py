@@ -1,85 +1,62 @@
-import os
-import yaml
+from dynaconf import Dynaconf, Validator
 from pathlib import Path
-from dotenv import load_dotenv
 
-# 1. Load Environment Variables from .env
-load_dotenv()
+# 1. Define Paths
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# 2. Load Default Configuration from config.yaml
-# 2. Configuration Paths
-PACKAGE_ROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = PACKAGE_ROOT.parent.parent # Assuming src/genpulse structure
+# 2. Instantiate Dynaconf
+# It will automatically look for config.yaml and .env files
+settings = Dynaconf(
+    envvar_prefix="GENPULSE",      # Look for GENPULSE_VAR in .env/Shell
+    settings_files=["config.yaml"], # Load shared defaults
+    environments=True,             # Enable [default, development, production] sections
+    load_dotenv=True,              # Allow .env files
+    env_switcher="ENV_FOR_DYNACONF", # Change env via ENV_FOR_DYNACONF=production
+    root_path=PROJECT_ROOT,
+)
 
-# Try multiple locations for config.yaml
-config_paths = [
-    Path.cwd() / "config.yaml",
-    PROJECT_ROOT / "config.yaml",
-    PACKAGE_ROOT / "config.yaml"
-]
+# 3. Define Validation Rules
+settings.validators.register(
+    # Ensure critical connection strings are present
+    Validator("REDIS_URL", must_exist=True, default="redis://localhost:6379/0"),
+    Validator("DATABASE_URL", must_exist=True),
+    # Ensure storage type is valid
+    Validator("STORAGE.TYPE", is_in=["local", "s3"], default="local"),
+)
 
-yaml_config = {}
-for path in config_paths:
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            yaml_config = yaml.safe_load(f) or {}
-        break
+# 4. Trigger Validation
+settings.validators.validate()
 
-# Helper to get config with priority: Env Var > YAML > Default
-def get_config(env_key, yaml_path, default=None):
-    # Try Environment Variable
-    val = os.getenv(env_key)
-    if val is not None:
-        return val
-    
-    # Try YAML nested path (e.g., "redis.url")
-    keys = yaml_path.split('.')
-    temp = yaml_config
-    for k in keys:
-        if isinstance(temp, dict) and k in temp:
-            temp = temp[k]
-        else:
-            temp = None
-            break
-    
-    if temp is not None:
-        return temp
-        
-    return default
+# --- Export Constants for Backward Compatibility ---
+# This ensures existing code (e.g., in worker.py or router.py) doesn't break.
 
-# --- Flattened Configuration Constants ---
+ENV = settings.get("ENV", "dev")
+REDIS_URL = settings.REDIS_URL
+DATABASE_URL = settings.DATABASE_URL
+REDIS_TASK_QUEUE_NAME = settings.REDIS.TASK_QUEUE_NAME
+MQ_TYPE = settings.get("MQ_TYPE", "redis")
 
-ENV = get_config("ENV", "env", "dev")
+STORAGE_TYPE = settings.STORAGE.TYPE
+STORAGE_LOCAL_PATH = settings.STORAGE.LOCAL_PATH
+STORAGE_BASE_URL = settings.STORAGE.BASE_URL
 
-# Redis
-REDIS_URL = get_config("REDIS_URL", "redis.url", "redis://localhost:6379/0")
-REDIS_TASK_QUEUE_NAME = get_config("REDIS_TASK_QUEUE_NAME", "redis.task_queue_name", "tasks:pending")
-MQ_TYPE = get_config("MQ_TYPE", "mq.type", "redis")
+COMFY_URL = settings.PROVIDERS.COMFY_URL
+DEFAULT_IMAGE_PROVIDER = settings.PROVIDERS.DEFAULT_IMAGE_PROVIDER
+DEFAULT_VIDEO_PROVIDER = settings.PROVIDERS.DEFAULT_VIDEO_PROVIDER
 
-# Database
-DATABASE_URL = get_config("DATABASE_URL", "db.url", "postgresql+asyncpg://postgres:postgres@localhost:5432/genpulse")
+# Secrets (Automatically mapped from GENPULSE_VOLC_ACCESS_KEY etc.)
+VOLC_ACCESS_KEY = settings.get("VOLC_ACCESS_KEY")
+VOLC_SECRET_KEY = settings.get("VOLC_SECRET_KEY")
 
-# Storage
-STORAGE_TYPE = get_config("STORAGE_TYPE", "storage.type", "local")
-STORAGE_LOCAL_PATH = get_config("STORAGE_LOCAL_PATH", "storage.local_path", "data/assets")
-STORAGE_BASE_URL = get_config("STORAGE_BASE_URL", "storage.base_url", "http://localhost:8000/assets")
+S3_ENDPOINT_URL = settings.get("S3_ENDPOINT_URL")
+S3_ACCESS_KEY = settings.get("S3_ACCESS_KEY")
+S3_SECRET_KEY = settings.get("S3_SECRET_KEY")
+S3_BUCKET_NAME = settings.get("S3_BUCKET_NAME", "genpulse")
+S3_REGION_NAME = settings.get("S3_REGION_NAME", "us-east-1")
 
-# S3 (Optional)
-S3_ENDPOINT_URL = get_config("S3_ENDPOINT_URL", "s3.endpoint_url")
-S3_ACCESS_KEY = get_config("S3_ACCESS_KEY", "s3.access_key")
-S3_SECRET_KEY = get_config("S3_SECRET_KEY", "s3.secret_key")
-S3_BUCKET_NAME = get_config("S3_BUCKET_NAME", "s3.bucket_name", "genpulse")
-S3_REGION_NAME = get_config("S3_REGION_NAME", "s3.region_name", "us-east-1")
-
-# Providers
-COMFY_URL = get_config("COMFY_URL", "providers.comfy_url", "http://127.0.0.1:8188")
-DEFAULT_IMAGE_PROVIDER = get_config("DEFAULT_IMAGE_PROVIDER", "providers.default_image_provider", "volcengine")
-DEFAULT_VIDEO_PROVIDER = get_config("DEFAULT_VIDEO_PROVIDER", "providers.default_video_provider", "volcengine")
-
-# Derived Properties
+# Derived settings
 REDIS_PREFIX = {
-    "dev": "dev:",
-    "test": "test:",
-    "prod": "prod:"
-}.get(ENV, "dev:")
-
+    "development": "dev:",
+    "testing": "test:",
+    "production": "prod:"
+}.get(settings.current_env.lower(), "dev:")

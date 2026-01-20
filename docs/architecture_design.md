@@ -24,24 +24,28 @@ graph TD
     subgraph "State Layer"
         API -->|Insert Task| DB[(PostgreSQL)]
         API -->|LPUSH| RedisQueue
-        RedisQueue -->|Pop Task| Dispatcher[Task Dispatcher]
         
         RedisPubSub[Redis Pub/Sub] -->|Event: Update| API
         RedisPubSub -->|Event: Update| ExternalApp
     end
 
-    subgraph "Execution Layer"
-        Dispatcher -->|Route: comfy| WorkerComfy[ComfyUI Adapter]
-        Dispatcher -->|Route: diffusers| WorkerNative[Diffusers Worker]
-        Dispatcher -->|Route: api| WorkerAPI[External API Worker]
+    subgraph "Execution Layer (Worker)"
+        RedisQueue -->|Pop Task| Worker[genpulse.worker]
+        Worker -->|Discovery| Registry[genpulse.features.registry]
+        Worker -->|Call| Handler[Feature Handlers]
         
-        WorkerComfy -->|WS/HTTP| ComfyInstance[ComfyUI Server]
-        WorkerNative -->|Load Model| GPUNode[GPU Resources]
-        WorkerAPI -->|HTTP| CloudProvider[Midjourney/OpenAI/etc]
+        Handler -->|Engine logic| Engines[genpulse.engines]
+        Handler -->|External logic| Clients[genpulse.clients]
+    end
+
+    subgraph "Resource Layer"
+        Engines -->|Comfy Adapters| ComfyInstance[ComfyUI Server]
+        Engines -->|Local Pipeline| GPUNode[GPU/Torch]
+        Clients -->|REST/WS| CloudProvider[VolcEngine/OSS/S3]
     end
 
     subgraph "Storage Layer"
-        WorkerComfy & WorkerNative & WorkerAPI -->|Upload| OSS[MinIO / S3]
+        Engines & Clients & Handler -->|Upload| OSS[Local/MinIO/S3]
         OSS -->|URL| DB
     end
 ```
@@ -77,35 +81,37 @@ src/genpulse/
 ```python
 class BaseHandler(ABC):
     @abstractmethod
-    def validate_params(self, params: dict) -> bool:
+    def validate_params(self, params: Dict[str, Any]) -> bool:
         """Validate task parameters"""
         pass
 
     @abstractmethod
-    async def execute(self, task: Task, context: Context) -> Result:
+    async def execute(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Core execution logic.
-        Context provides generic capabilities like `update_progress()`, `upload_file()`, `log()`.
+        Context provides generic capabilities like `update_status()`.
         """
         pass
 ```
 
 ### 3.2 Unified Task Model
 
-Task types are no longer hardcoded enums but are directly mapped to the Registry Key of a Handler.
+Task types are no longer tied to specific implementations but represent "What" the user wants to do. The "How" is specified via a `provider` inside `params`.
 
 ```json
 {
   "task_id": "uuid-v4",
-  "task_type": "txt2img",  // Maps to Handler Registry Key
+  "task_type": "text-to-image",
   "priority": "normal",
-  "source": "http",
-  "params": {              // Passed transparently to Handler.validate_params
-    "prompt": "...",
-    "cfg": 7.5
+  "params": {
+    "provider": "comfyui",
+    "prompt": "a cyberpunk city",
+    "workflow": { ... }
   }
 }
 ```
+
+The Worker uses the `task_type` to find a feature handler, which then inspects the `provider` to decide which engine or client to use.
 
 ### 3.3 Generic Worker Logic
 
@@ -133,16 +139,16 @@ The Worker contains no domain-specific logic; it merely acts as a bridge:
 
 ### 3.5 Communication / Data Flow
 
-#### Method A: HTTP + Polling (For End Users)
-1.  **Submit**: `POST /generate` -> Return `{ "task_id": "xyz", "status": "pending" }`.
-2.  **Process**: Backend processes asynchronously, updates Redis/DB status.
-3.  **Poll**: Client `GET /tasks/xyz` -> Return `{ "status": "processing", "progress": 50 }`.
-4.  **Complete**: Return `{ "status": "completed", "url": "https://oss..." }`.
+#### Method A: HTTP (For End Users)
+1.  **Submit**: `POST /task` -> Return `{ "status": "pending", "task_id": "xyz", ... }`.
+2.  **Process**: Backend processes asynchronously, updates Redis (MQ) and PostgreSQL (DB).
+3.  **Poll**: Client `GET /task/xyz` -> Return `{ "status": "processing", "progress": 50 }`.
+4.  **Complete**: Return `{ "status": "completed", "result": { "images": [...] } }`.
 
 #### Method B: Direct MQ (For Power Users / Integration)
 1.  **Submit**: Client sends JSON to Redis `tasks:pending` list via `LPUSH`.
 2.  **Process**: Same as above.
-3.  **Listen**: Client `SUBSCRIBE task_updates:xyz` channel to receive real-time JSON events for progress/results.
+3.  **Listen**: Client `SUBSCRIBE task_updates:{task_id}` channel to receive real-time JSON events for progress/results.
 
 ### 3.6 Storage Strategy
 
@@ -154,22 +160,24 @@ The Worker contains no domain-specific logic; it merely acts as a bridge:
 
 ### 3.7 Service Orchestration & Startup Strategy
 
-The system supports flexible startup modes to accommodate both development efficiency and production stability.
+The system is managed via the `genpulse` CLI (defined in `pyproject.toml` pointing to `genpulse.cli`).
 
-#### A. Development (Hybrid "All-in-One" Mode)
-For rapid iteration, a single command `python manager.py start-all` initializes:
-1.  **Core Services**: FastAPI Server and Task Worker (running in-process or as threads).
-2.  **Local Engines**: Automatically spawns and manages heavy local engines (e.g., ComfyUI in `libs/comfyui`) as **child processes**.
-    -   *Workflow*: `Handler` (in Worker) -> `Localhost HTTP/WS` -> `Child Process (ComfyUI)`.
-    -   *Benefit*: One-click startup; no need to manually manage external engine processes.
+#### A. Development (Dev Mode)
+Command: `uv run genpulse dev`
+- **Behavior**: Starts both the FastAPI Server and the Task Worker in the same terminal/event loop.
+- **Workflow**: Ideal for local testing where you want to see both API logs and Worker logs together.
 
-#### B. Production (Multi-Process Orchestration)
-For stability and scalability, services are deployed separately (e.g., via Docker/Supervisor):
--   **API Gateway Service**: Exclusive handling of HTTP traffic.
--   **Worker Service(s)**: Scalable consumer units.
--   **Engine Service(s)**: ComfyUI running as standalone dedicated services/containers.
-    -   *Workflow*: `Handler` -> `Internal Network HTTP/WS` -> `Remote Comfy Service`.
-    -   *Connection*: The Handler uses the same logic but points to a remote IP instead of localhost.
+#### B. Production (Separated Mode)
+Run as separate services:
+1. **API**: `uv run genpulse api`
+2. **Worker**: `uv run genpulse worker`
+
+This allows scaling the Worker independently from the API. The API only needs to handle I/O and DB/Redis fast transactions, while Workers handle CPU/GPU intensive tasks.
+
+#### C. Local Engines
+For engines like ComfyUI, you can:
+- Run them manually as separate processes.
+- The `FeatureHandler` connects to them via `server_address` (defaulting to `localhost:8188`).
 
 ## 4. Technology Stack
 

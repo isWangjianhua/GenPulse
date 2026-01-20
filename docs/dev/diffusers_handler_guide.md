@@ -17,7 +17,7 @@ Content-Type: application/json
     "model_id": "runwayml/stable-diffusion-v1-5",
     "prompt": "a futuristic cyberpunk city",
     "negative_prompt": "blurry, low quality",
-    "steps": 25,
+    "steps": 30,
     "guidance_scale": 7.5,
     "seed": 42
   }
@@ -65,5 +65,6 @@ The system must have the following dependencies installed:
 - `torch`
 - `transformers`
 - `accelerate`
+- `dynaconf`
 
 These are managed via `uv`. Run `uv sync` to ensure your environment is ready.

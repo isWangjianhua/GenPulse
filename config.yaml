@@ -1,28 +1,32 @@
-# General Environment
-env: dev
+# --- GenPulse Configuration (Shared Defaults) ---
+# Environment-specific overrides can be placed in development:, production:, or test:
 
-# Redis Configuration
-redis:
-  url: "redis://localhost:6379/0"
-  task_queue_name: "tasks:pending"
+default:
+  # Redis Queue settings
+  redis:
+    task_queue_name: "tasks:pending"
 
-# MQ Provider Type
-mq:
-  type: "redis"
+  # Storage Settings
+  storage:
+    type: "local"
+    local_path: "data/assets"
+    base_url: "http://localhost:8000/assets"
 
-# Database Configuration
-# Sensitive URL should be empty here and provided via .env
-db:
-  url: null
+  # Provider Settings
+  providers:
+    default_image_provider: "volcengine"
+    default_video_provider: "volcengine"
+    comfy_url: "http://127.0.0.1:8188"
 
-# Storage Configuration
-storage:
-  type: "local"
-  local_path: "data/assets"
-  base_url: "http://localhost:8000/assets"
+development:
+  # Overrides for local dev if any
+  env: "dev"
 
-# Provider Settings
-providers:
-  default_image_provider: "volcengine"
-  default_video_provider: "volcengine"
-  comfy_url: "http://127.0.0.1:8188"
+production:
+  env: "prod"
+  # Production might have different queue names, etc.
+  # redis:
+  #   task_queue_name: "tasks:main"
+
+test:
+  env: "test"
