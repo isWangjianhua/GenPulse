@@ -15,14 +15,6 @@ def get_volc_client():
     except ImportError:
         raise ImportError("VolcEngine SDK not installed.")
 
-def get_diffusers_pipeline(model_id):
-    # This assumes we have a reuseable mechanism or we just import the simple handler logic
-    # For simplicity in this flat structure, we might need to duplicate the logic or import a helper
-    try:
-        from genpulse.engines.diffusers_engine import get_pipeline
-        return get_pipeline(model_id)
-    except ImportError:
-        raise ImportError("Diffusers/Torch not installed.")
 
 # --- Text to Image ---
 
