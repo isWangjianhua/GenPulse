@@ -11,8 +11,10 @@ POST /task
 Content-Type: application/json
 
 {
-  "task_type": "comfyui",
+  "task_type": "text-to-image",
   "params": {
+    "provider": "comfyui",
+    "prompt": "a cute cat",
     "workflow": { ... },
     "server_address": "127.0.0.1:8188"
   },
@@ -75,8 +77,10 @@ S3_BUCKET_NAME=your_bucket
 curl -X POST http://localhost:8000/task \
   -H "Content-Type: application/json" \
   -d '{
-    "task_type": "comfyui",
+    "task_type": "text-to-image",
     "params": {
+      "provider": "comfyui",
+      "prompt": "a beautiful landscape",
       "workflow": {"6": {"inputs": {"text": "a beautiful landscape"}}},
       "server_address": "127.0.0.1:8188"
     }

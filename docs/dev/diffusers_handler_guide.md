@@ -11,8 +11,9 @@ POST /task
 Content-Type: application/json
 
 {
-  "task_type": "diffusers_txt2img",
+  "task_type": "text-to-image",
   "params": {
+    "provider": "diffusers",
     "model_id": "runwayml/stable-diffusion-v1-5",
     "prompt": "a futuristic cyberpunk city",
     "negative_prompt": "blurry, low quality",
@@ -25,7 +26,8 @@ Content-Type: application/json
 
 ### Parameters
 
-- **task_type**: Must be `diffusers_txt2img`.
+- **task_type**: Must be `text-to-image`.
+- **provider**: Set to `diffusers`.
 - **model_id** (optional): The Hugging Face model ID. Defaults to `runwayml/stable-diffusion-v1-5`.
 - **prompt** (required): The primary text prompt.
 - **negative_prompt** (optional): Negative prompt.
@@ -47,8 +49,9 @@ Content-Type: application/json
 curl -X POST http://localhost:8000/task \
   -H "Content-Type: application/json" \
   -d '{
-    "task_type": "diffusers_txt2img",
+    "task_type": "text-to-image",
     "params": {
+      "provider": "diffusers",
       "prompt": "a beautiful forest with sunlight filtering through leaves",
       "steps": 20
     }

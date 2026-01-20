@@ -24,7 +24,7 @@ Environments are controlled via `ENV` variable and `.env` files.
 
 | Env | `ENV` Value | Redis Key Prefix | DB Mode | Local Libs |
 | :--- | :--- | :--- | :--- | :--- |
-| **Local** | `dev` | `dev:` | Local/Docker | Auto-spawn (`manager.py start-all`) |
+| **Local** | `dev` | `dev:` | Local/Docker | Auto-spawn (`genpulse dev`) |
 | **Testing** | `test` | `test:` | Shared Test DB | Dedicated Service |
 | **Prod** | `main` | `prod:` | Production Cluster | Dedicated Cluster |
 
@@ -33,7 +33,7 @@ Environments are controlled via `ENV` variable and `.env` files.
 We use `pydantic-settings` to manage configurations across environments.
 
 ```python
-# core/config.py
+# genpulse/config.py
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):

@@ -20,17 +20,19 @@ GenPulse 是一个稳健的后端系统，专为大规模编排复杂的生成�
 
 ## 🛠️ 使用示例
 
-### 提交工作流任务
-直接提交 ComfyUI 标准工作流 JSON 即可开始任务。
+### 提交任务
+提交 `text-to-image` 任务并指定 provider。
 
 ```http
 POST /task
 Content-Type: application/json
 
 {
-  "task_type": "comfyui",
+  "task_type": "text-to-image",
   "params": {
-    "workflow": { ... }, // ComfyUI API 格式 JSON
+    "provider": "comfyui",
+    "prompt": "a futuristic cyberpunk city",
+    "workflow": { ... }, 
     "server_address": "127.0.0.1:8188"
   }
 }
@@ -83,11 +85,12 @@ Content-Type: application/json
 
 3.  **启动服务**:
     ```bash
-    # 启动 API 服务
-    uv run uvicorn core.gateway:app --reload
-    
-    # 启动 Worker 服务
-    uv run python -m core.worker
+    # 一键启动 API 和 Worker (开发模式)
+    uv run genpulse dev
+
+    # 或者分别启动
+    uv run genpulse api
+    uv run genpulse worker
     ```
 
 ---

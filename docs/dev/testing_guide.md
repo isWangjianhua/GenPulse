@@ -42,21 +42,24 @@ When testing a new handler, you should simulate the worker picking up the task.
 
 Example:
 ```python
+from genpulse.worker import Worker
+import json
+
 @pytest.mark.asyncio
 async def test_my_handler(mock_redis_mgr, mock_db_manager):
     worker = Worker()
-    worker._discover_handlers() # Ensure handlers are registered
+    # Handlers are registered via genpulse.features.registry
     
     task_json = json.dumps({
         "task_id": "test-uuid",
-        "task_type": "my-handler-type",
-        "params": {...}
+        "task_type": "text-to-image",
+        "params": {"provider": "comfyui", "prompt": "a test prompt", "workflow": {}}
     })
     
-    await worker.process_task(task_json)
+    await worker.process_single_task(task_json) # Internal method
     
     # Verify DB/Redis updates
-    mock_db_manager.update_task.assert_called()
+    mock_db_manager.update_task_status.assert_called()
 ```
 
 ## 5. Local Infrastructure Testing
@@ -72,6 +75,7 @@ Then you can write tests that do not use the `mock_*` fixtures. Note that these 
 For ComfyUI-related tests, we usually mock the `ComfyClient` to avoid needing a real ComfyUI instance running.
 
 ```python
-with patch("handlers.comfy_handler.ComfyClient", return_value=mock_client_instance):
+from unittest.mock import patch
+with patch("genpulse.engines.comfy_engine.ComfyClient", return_value=mock_client_instance):
     # run test
 ```

@@ -48,28 +48,29 @@ graph TD
 
 ## 3. Detailed Design
 
-### 3.1 The Core: Registry Pattern
+### 3.1 The Core: Feature-Engine Architecture
 
-To enable "extension without modification," the system uses a **Dynamic Registry Pattern**.
+To enable "extension without modification," the system uses a **Registry Pattern** organized into three layers.
 
-**Directory Structure Example:**
+**Directory Structure:**
 ```
-core/                # System Backbone (Stable)
-  ├── gateway.py     # HTTP Ingestion
-  ├── mq.py          # Redis Queue Management
-  └── worker.py      # Generic Task Executor
-handlers/            # Business Plugins (Extensible)
-  ├── __init__.py    # Auto-discovery
-  ├── base.py        # BaseHandler Interface Definition
-  ├── z_image.py     # Example: Handler using Local ComfyUI
-  └── m_journey.py   # Example: Handler using Remote Client
-libs/                # Local Engines (System Managed)
-  └── comfyui/       # ComfyUI Source/Environment (Run as subprocess)
-clients/             # Remote API Wrappers
-  ├── midjourney.py  # Midjourney API Client
-  ├── openai.py      # OpenAI API Client
-  └── remote_comfy.py# Client for external ComfyUI clusters
-manager.py           # Unified CLI (Starts API, Workers, and local libs)
+src/genpulse/
+  ├── app.py           # FastAPI Application Factory & Gateway
+  ├── worker.py        # Generic Task Worker (Consumer)
+  ├── features/        # Business Domain Logic (The "What")
+  │   ├── base.py      # BaseHandler Interface
+  │   ├── registry.py  # Task-to-Handler Mapping
+  │   ├── image/       # Image Gen Features (text-to-image, etc)
+  │   └── video/       # Video Gen Features
+  ├── engines/         # Technical Implementations (The "How")
+  │   ├── comfy_engine.py    # ComfyUI Integration
+  │   └── diffusers_engine.py # Local Diffusers Integration
+  ├── infra/           # Shared Infrastructure
+  │   ├── database/    # PostgreSQL / SQLAlchemy
+  │   └── mq/          # Redis Message Queue
+  └── clients/         # External API Wrappers (The "Remote")
+      ├── volcengine/  # ByteDance VolcEngine Client
+      └── comfyui/     # ComfyUI WebSocket/HTTP Client
 ```
 
 **BaseHandler Interface:**
@@ -108,27 +109,27 @@ Task types are no longer hardcoded enums but are directly mapped to the Registry
 
 ### 3.3 Generic Worker Logic
 
-The Worker contains no business logic; it merely acts as a transporter:
+The Worker contains no domain-specific logic; it merely acts as a bridge:
 
 1.  Pop task from Redis.
 2.  Read `task_type`.
-3.  Get corresponding `HandlerClass` from Registry.
+3.  Get corresponding `FeatureHandler` from `genpulse.features.registry`.
 4.  Instantiate and call `await handler.execute(task, context)`.
-5.  Capture Handler return value or exception, update Redis/DB.
+5.  Feature handler delegates to `engines` or `clients`.
+6.  Capture return value or exception, update Redis/DB.
 
 ### 3.4 Extension Scenarios
 
 -   **Scenario: Adding Voice Generation**
-    1.  Create `handlers/voice.py`.
-    2.  Implement `BaseHandler`, calling TTS engine.
-    3.  Add decorator `@register("voice_tts")`.
-    4.  **Done**. HTTP interface automatically supports `task_type="voice_tts"`.
+    1.  Create `src/genpulse/features/voice/handlers.py`.
+    2.  Implement `BaseHandler`, calling a TTS engine from `engines/`.
+    3.  Add decorator `@registry.register("text-to-speech")`.
+    4.  **Done**. API automatically supports `task_type="text-to-speech"`.
 
--   **Scenario: Adding ComfyUI Workflow**
-    1.  Create `handlers/portrait.py`.
-    2.  Inherit `ComfyBaseHandler` (reusing ComfyUI connection logic).
-    3.  Specify workflow template file.
-    4.  Register as `task_type="portrait_gen"`.
+-   **Scenario: Adding specialized Image generation**
+    1.  Add logic to `src/genpulse/features/image/handlers.py` or create a new file.
+    2.  Use the `provider` pattern to switch between internal engines.
+    3.  Register new task types as needed.
 
 ### 3.5 Communication / Data Flow
 

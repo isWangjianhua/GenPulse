@@ -21,16 +21,18 @@ GenPulse is a robust backend system designed to orchestrate complex Generative A
 ## 🛠️ Usage
 
 ### Submitting a Workflow
-Submit a ComfyUI workflow JSON to start a generation task.
+Submit a `text-to-image` task with the desired provider.
 
 ```http
 POST /task
 Content-Type: application/json
 
 {
-  "task_type": "comfyui",
+  "task_type": "text-to-image",
   "params": {
-    "workflow": { ... }, // Standard ComfyUI API JSON
+    "provider": "comfyui",
+    "prompt": "a futuristic cyberpunk city",
+    "workflow": { ... }, 
     "server_address": "127.0.0.1:8188"
   }
 }
@@ -98,11 +100,12 @@ Poll or listen for updates to get the generated asset URLs.
 
 5.  **Run**:
     ```bash
-    # Start API
-    uv run uvicorn core.gateway:app --reload
-    
-    # Start Worker
-    uv run python -m core.worker
+    # Start API and Worker in one go (Dev mode)
+    uv run genpulse dev
+
+    # OR start separately
+    uv run genpulse api
+    uv run genpulse worker
     ```
 
 ---
