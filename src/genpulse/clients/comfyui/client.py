@@ -4,9 +4,7 @@ import uuid
 import httpx
 import websockets
 from typing import Dict, Any, List, Optional
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class ComfyClient:
     def __init__(self, base_url: str = "http://127.0.0.1:8188"):

@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from loguru import logger
 import os
 import time
 import datetime
@@ -25,7 +25,6 @@ from .schemas import (
     BaiduStatusResponse
 )
 
-logger = logging.getLogger("BaiduVodClient")
 
 class BaiduVodClient(BaseClient):
     """

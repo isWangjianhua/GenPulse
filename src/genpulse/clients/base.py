@@ -1,9 +1,7 @@
 import asyncio
-import logging
 import httpx
 from typing import Any, Callable, Optional, TypeVar, Coroutine, Dict
-
-logger = logging.getLogger("BaseClient")
+from loguru import logger
 
 T = TypeVar("T")
 

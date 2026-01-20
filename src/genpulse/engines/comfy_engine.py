@@ -1,14 +1,12 @@
 import io
 import uuid
-import logging
 from typing import Dict, Any
+from loguru import logger
 from genpulse.engines.base import BaseEngine
 from genpulse.clients.comfyui.client import ComfyClient
 from genpulse.infra.storage import get_storage
 from genpulse.features.registry import registry
 from genpulse import config
-
-logger = logging.getLogger("ComfyEngine")
 
 @registry.register("comfyui")
 class ComfyEngine(BaseEngine):

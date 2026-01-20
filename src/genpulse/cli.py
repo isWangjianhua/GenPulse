@@ -5,12 +5,14 @@ import logging
 from genpulse.app import create_api, create_worker
 from genpulse.infra.database.engine import init_db as _init_db
 
+from genpulse.infra.log import setup_logging
+
 logger = logging.getLogger("GenPulseCLI")
 
 @click.group()
 def cli():
     """GenPulse Management CLI"""
-    logging.basicConfig(level=logging.INFO)
+    setup_logging()
 
 @cli.command()
 def init_db():

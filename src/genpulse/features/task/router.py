@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import uuid
 import json
+from loguru import logger
 from genpulse.infra.mq import get_mq
 from genpulse.infra.database.manager import DBManager
 from genpulse import config
@@ -23,7 +24,7 @@ async def create_task(req: TaskRequest):
     try:
         await DBManager.create_task(task_id, req.task_type, req.params)
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
     
     # 2. Push to MQ
     task_data = {

@@ -2,9 +2,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import update, select
 from .engine import async_session
 from .models import Task
-import logging
-
-logger = logging.getLogger("DBManager")
+from loguru import logger
 
 class DBManager:
     @staticmethod

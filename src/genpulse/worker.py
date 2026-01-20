@@ -1,14 +1,11 @@
 import asyncio
 import json
-import logging
 import importlib
 import os
+from loguru import logger
 from genpulse.infra.mq import get_mq
 from genpulse.features.registry import registry
 from genpulse.infra.database.manager import DBManager
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("Worker")
 
 class Worker:
     def __init__(self):

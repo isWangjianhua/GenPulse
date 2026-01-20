@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from loguru import logger
 import os
 from typing import Optional, Dict, Any, Union, Callable
 import dashscope
@@ -12,7 +12,6 @@ from .schemas import (
     DashScopeStatusResponse
 )
 
-logger = logging.getLogger("DashScopeClient")
 
 class DashScopeClient(BaseClient):
     """

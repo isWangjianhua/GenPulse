@@ -12,6 +12,14 @@ default:
     local_path: "data/assets"
     base_url: "http://localhost:8000/assets"
 
+  # Logging Settings
+  logging:
+    level: "INFO"
+    save_to_file: true
+    log_dir: "logs"
+    rotation: "500 MB"
+    retention: "10 days"
+
   # Provider Settings
   providers:
     default_image_provider: "volcengine"

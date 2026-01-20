@@ -1,11 +1,9 @@
-import logging
+from loguru import logger
 import asyncio
 from typing import Dict, Any, Optional
 from genpulse.features.base import BaseHandler
 from genpulse.features.registry import registry
 from genpulse import config
-
-logger = logging.getLogger("ImageHandler")
 
 # --- Helpers / Lazy Imports ---
 # We keep these separate to avoid dependency hell if a user doesn't use a specific provider

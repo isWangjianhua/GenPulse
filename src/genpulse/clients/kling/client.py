@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from loguru import logger
 import os
 import time
 import httpx
@@ -13,7 +13,6 @@ from .schemas import (
     KlingStatusResponse
 )
 
-logger = logging.getLogger("KlingClient")
 
 class KlingClient(BaseClient):
     """

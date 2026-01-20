@@ -2,11 +2,9 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
-import logging
+from loguru import logger
 from genpulse.infra.database.engine import init_db
 from genpulse import config
-
-logger = logging.getLogger("GenPulseApp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,5 +1,5 @@
 import asyncio
-import logging
+from loguru import logger
 import os
 import json
 from typing import Optional, Dict, Any, Union, Callable
@@ -17,7 +17,6 @@ from .schemas import (
     TencentImageStatusResponse
 )
 
-logger = logging.getLogger("TencentVodClient")
 
 class TencentVodClient(BaseClient):
     """

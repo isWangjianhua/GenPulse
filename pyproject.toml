@@ -26,6 +26,7 @@ dependencies = [
     "websockets>=16.0",
     "pyyaml>=6.0.2",
     "dynaconf>=3.2.6",
+    "loguru>=0.7.3",
 ]
 
 [project.scripts]

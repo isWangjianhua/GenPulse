@@ -168,3 +168,4 @@ worktrees/
 # Data folders
 /data/
 /data/assets/
+logs/

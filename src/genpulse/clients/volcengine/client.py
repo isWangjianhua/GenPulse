@@ -1,7 +1,7 @@
 import asyncio
-import logging
 import os
 from typing import Optional, Dict, Any, Union, Callable
+from loguru import logger
 from volcenginesdkarkruntime import Ark
 from .schemas import (
     VolcImageParams, 
@@ -9,8 +9,6 @@ from .schemas import (
     ArkResponse, 
     VolcVideoStatusResponse
 )
-
-logger = logging.getLogger("VolcEngineClient")
 
 from genpulse.clients.base import BaseClient
 

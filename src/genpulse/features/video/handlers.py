@@ -1,11 +1,9 @@
-import logging
+from loguru import logger
 import asyncio
 from typing import Dict, Any
 from genpulse.features.base import BaseHandler
 from genpulse.features.registry import registry
 from genpulse import config
-
-logger = logging.getLogger("VideoHandler")
 
 def get_volc_client():
     try:
