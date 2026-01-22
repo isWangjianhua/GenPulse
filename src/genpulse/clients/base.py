@@ -99,11 +99,11 @@ class BaseClient:
                 
                 # 3. Check terminal states
                 if check_success_func(response):
-                    logger.info(f"Task {task_id} succeeded.")
+                    logger.info(f"Task {task_id} succeeded. Response: {response}")
                     return response
                 
                 if check_failed_func(response):
-                    logger.warning(f"Task {task_id} failed or cancelled.")
+                    logger.warning(f"Task {task_id} failed or cancelled. Response: {response}")
                     return response
                 
                 # 4. Wait for next cycle
