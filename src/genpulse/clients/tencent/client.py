@@ -73,7 +73,7 @@ class TencentVodClient(BaseClient):
         Create an AIGC video task and optionally poll for completion.
         """
         request = TencentVideoParams(**params) if isinstance(params, dict) else params
-        request.SubAppId = sub_app_id or self.sub_app_id
+        request.SubAppId = request.SubAppId or self.sub_app_id
         request_data = request.model_dump(exclude_none=True)
         logger.info(f"Tencent: Creating AIGC video task (Model: {request.ModelName})")
         req = models.CreateAigcVideoTaskRequest()
@@ -117,7 +117,7 @@ class TencentVodClient(BaseClient):
         Supports both Gemini (GEM), Qwen, and Hunyuan models.
         """
         request = TencentImageParams(**params) if isinstance(params, dict) else params
-        request.SubAppId = sub_app_id or self.sub_app_id
+        request.SubAppId = request.SubAppId or self.sub_app_id
         request_data = request.model_dump(exclude_none=True)
         logger.info(f"Tencent: Creating AIGC image task (Model: {request.ModelName})")
         req = models.CreateAigcImageTaskRequest()

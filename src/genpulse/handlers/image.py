@@ -16,6 +16,13 @@ def get_volc_client():
     except ImportError:
         raise ImportError("VolcEngine SDK not installed.")
 
+def get_tencent_client():
+    try:
+        from genpulse.clients.tencent.client import create_tencent_vod_client
+        return create_tencent_vod_client()
+    except ImportError:
+        raise ImportError("Tencent Cloud SDK not installed.")
+
 
 # --- Text to Image ---
 
@@ -67,6 +74,40 @@ class TextToImageHandler(BaseHandler):
             from genpulse.engines.diffusers_engine import DiffusersEngine
             handler = DiffusersEngine()
             return await handler.execute(task, context)
+
+        # --- Tencent VOD (Cloud) ---
+        elif provider == "tencent":
+            from genpulse.clients.tencent.schemas import TencentImageParams
+            client = get_tencent_client()
+            
+            # Map standard params to Tencent specifics
+            # Tencent expects: ModelName, ModelVersion, Prompt, NegativePrompt, OutputConfig
+            tencent_params = TencentImageParams(
+                ModelName=params.get("model_name", "Hunyuan"),
+                ModelVersion=params.get("model_version", "3.0"),
+                Prompt=params.get("prompt"),
+                NegativePrompt=params.get("negative_prompt"),
+                OutputConfig={
+                    "AspectRatio": params.get("aspect_ratio", "16:9"),
+                    "Resolution": params.get("resolution", "1024x576")
+                }
+            )
+            
+            try:
+                response = await client.generate_image(tencent_params, wait=True)
+                if not response.is_succeeded:
+                    error_msg = response.AigcImageTask.Message if response.AigcImageTask else "Unknown Tencent error"
+                    raise Exception(f"Tencent T2I failed: {error_msg}")
+                    
+                return {
+                    "status": "succeeded",
+                    "result_url": response.result_url,
+                    "data": response.model_dump(),
+                    "provider": "tencent"
+                }
+            except Exception as e:
+                logger.error(f"Tencent T2I failed: {e}")
+                raise e
 
         else:
             raise ValueError(f"Unknown provider '{provider}' for text-to-image")
