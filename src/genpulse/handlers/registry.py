@@ -1,5 +1,5 @@
 from typing import Dict, Type, Optional
-from genpulse.features.base import BaseHandler
+from genpulse.handlers.base import BaseHandler
 
 class HandlerRegistry:
     _handlers: Dict[str, Type[BaseHandler]] = {}

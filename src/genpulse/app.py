@@ -26,7 +26,7 @@ def create_api() -> FastAPI:
     app.mount("/assets", StaticFiles(directory=config.STORAGE_LOCAL_PATH), name="assets")
 
     # 2. Register feature routers
-    from genpulse.features.task.router import router as task_router
+    from genpulse.routers.task import router as task_router
     app.include_router(task_router)
 
     # Health check

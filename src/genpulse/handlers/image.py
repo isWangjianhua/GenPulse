@@ -1,8 +1,8 @@
 from loguru import logger
 import asyncio
 from typing import Dict, Any, Optional
-from genpulse.features.base import BaseHandler
-from genpulse.features.registry import registry
+from genpulse.handlers.base import BaseHandler
+from genpulse.handlers.registry import registry
 from genpulse import config
 from genpulse.types import TaskContext
 

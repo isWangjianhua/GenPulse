@@ -4,7 +4,7 @@ import importlib
 import os
 from loguru import logger
 from genpulse.infra.mq import get_mq
-from genpulse.features.registry import registry
+from genpulse.handlers.registry import registry
 from genpulse.infra.database.manager import DBManager
 
 class Worker:
@@ -13,19 +13,21 @@ class Worker:
         self.should_run = True
 
     def _discover_handlers(self):
-        """Automatically import all modules in the features/ directory to trigger registration"""
-        features_dir = os.path.join(os.path.dirname(__file__), "features")
-        for root, dirs, files in os.walk(features_dir):
-            for file in files:
-                if file.endswith("_handlers.py") or file == "handlers.py":
-                    # Construct module path
-                    rel_path = os.path.relpath(os.path.join(root, file), os.path.dirname(__file__))
-                    module_path = "genpulse." + rel_path.replace(os.path.sep, ".").replace(".py", "")
-                    try:
-                        importlib.import_module(module_path)
-                        logger.info(f"Loaded handlers from {module_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to load handlers from {module_path}: {e}")
+        """Automatically import all modules in the handlers/ directory to trigger registration"""
+        handlers_dir = os.path.join(os.path.dirname(__file__), "handlers")
+        if not os.path.exists(handlers_dir):
+            logger.warning(f"Handlers directory not found: {handlers_dir}")
+            return
+
+        for file in os.listdir(handlers_dir):
+            if file.endswith(".py") and file not in ["__init__.py", "base.py", "registry.py"]:
+                module_name = file[:-3]
+                module_path = f"genpulse.handlers.{module_name}"
+                try:
+                    importlib.import_module(module_path)
+                    logger.info(f"Loaded handlers from {module_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load handlers from {module_path}: {e}")
 
     async def run(self):
         logger.info("Worker starting...")
