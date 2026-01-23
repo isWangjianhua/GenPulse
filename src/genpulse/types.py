@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Callable, Awaitable
+from typing import Any, Dict, Optional, Callable, Awaitable, List, Literal
 from enum import Enum
+from pydantic import BaseModel, Field
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
@@ -40,3 +41,41 @@ class EngineError(GenPulseError):
 class ValidationError(GenPulseError):
     """Errors during parameter validation"""
     pass
+
+class TaskParams(BaseModel):
+    """
+    Universal parameter schema derived from client patterns (Kling, Volcengine, etc.).
+    Serves as a "surface-level" standard.
+    """
+    # Core Identity
+    model: str = Field(..., description="Model identifier (e.g. 'kling-v1', 'wan2.5')")
+    
+    # Input Content
+    prompt: Optional[str] = Field(None, description="Main text prompt")
+    negative_prompt: Optional[str] = Field(None, description="Negative text prompt")
+    image_urls: Optional[List[str]] = Field(default_factory=list, description="List of input image URLs")
+    
+    # Generation Configuration
+    width: Optional[int] = None
+    height: Optional[int] = None
+    aspect_ratio: Optional[str] = None
+    duration: Optional[int] = None
+    num_outputs: int = Field(1, ge=1)
+    
+    # Advanced / Provider Specific
+    seed: Optional[int] = None
+    cfg_scale: Optional[float] = None
+    
+    # Extensibility
+    extra: Dict[str, Any] = Field(default_factory=dict, description="Provider-specific extra parameters")
+    class Config:
+        extra = "allow" # Allow top-level extra fields for convenience
+
+class TaskRequest(BaseModel):
+    task_type: str = Field(..., description="Task type (e.g. text-to-video, image-to-video)")
+    provider: str = Field(..., description="Service provider (e.g. kling, volcengine)")
+    
+    params: TaskParams
+    
+    priority: str = "normal"
+    callback_url: Optional[str] = None

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, Field
+from typing import Dict, Any, Optional, List, Literal
 import uuid
 import json
 from loguru import logger
@@ -11,10 +11,7 @@ from genpulse import config
 router = APIRouter(prefix="/task", tags=["tasks"])
 mq = get_mq()
 
-class TaskRequest(BaseModel):
-    task_type: str
-    params: Dict[str, Any]
-    priority: str = "normal"
+from genpulse.types import TaskRequest
 
 @router.post("")
 async def create_task(req: TaskRequest):
@@ -22,7 +19,7 @@ async def create_task(req: TaskRequest):
     
     # 1. Persist to DB
     try:
-        await DBManager.create_task(task_id, req.task_type, req.params)
+        await DBManager.create_task(task_id, req.task_type, req.params.model_dump())
     except Exception as e:
         logger.error(f"DB Error: {e}")
     
@@ -30,8 +27,10 @@ async def create_task(req: TaskRequest):
     task_data = {
         "task_id": task_id,
         "task_type": req.task_type,
-        "params": req.params,
-        "priority": req.priority
+        "provider": req.provider,
+        "params": req.params.model_dump(),
+        "priority": req.priority,
+        "callback_url": req.callback_url
     }
     
     try:
