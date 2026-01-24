@@ -13,6 +13,13 @@ def get_volc_client():
     except ImportError:
         raise ImportError("VolcEngine SDK not installed.")
 
+def get_tencent_client():
+    try:
+        from genpulse.clients.tencent.client import create_tencent_vod_client
+        return create_tencent_vod_client()
+    except ImportError:
+        raise ImportError("Tencent Cloud SDK not installed.")
+
 @registry.register("text-to-video")
 class TextToVideoHandler(BaseHandler):
     def validate_params(self, params: Dict[str, Any]) -> bool:
@@ -52,6 +59,39 @@ class TextToVideoHandler(BaseHandler):
                 return {"status": "succeeded", "data": response.model_dump(), "provider": "volcengine"}
             except Exception as e:
                 logger.error(f"VolcEngine T2V failed: {e}")
+                raise e
+
+        # --- Tencent VOD (Cloud) ---
+        elif provider == "tencent":
+            from genpulse.clients.tencent.schemas import TencentVideoParams
+            client = get_tencent_client()
+            
+            # Map standard params to Tencent specifics
+            tencent_params = TencentVideoParams(
+                ModelName=params.get("model_name", "Hunyuan"),
+                ModelVersion=params.get("model_version", "1.5"),
+                Prompt=params.get("prompt"),
+                NegativePrompt=params.get("negative_prompt"),
+                OutputConfig={
+                    "AspectRatio": params.get("aspect_ratio", "16:9"),
+                    "Resolution": params.get("resolution", "720P")
+                }
+            )
+            
+            try:
+                response = await client.generate_video(tencent_params, wait=True)
+                if not response.is_succeeded:
+                    error_msg = response.AigcVideoTask.Message if response.AigcVideoTask else "Unknown Tencent error"
+                    raise Exception(f"Tencent T2V failed: {error_msg}")
+                    
+                return {
+                    "status": "succeeded",
+                    "result_url": response.result_url,
+                    "data": response.model_dump(),
+                    "provider": "tencent"
+                }
+            except Exception as e:
+                logger.error(f"Tencent T2V failed: {e}")
                 raise e
 
         else:
