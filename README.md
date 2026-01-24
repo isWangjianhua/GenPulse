@@ -4,36 +4,51 @@
 >
 > 🇨🇳 [中文文档](./README_CN.md)
 
-GenPulse is a robust backend system designed to orchestrate complex Generative AI workflows (Image, Video, Audio) at scale. It provides reliable task scheduling, real-time status tracking, and unified asset management for AI applications.
+GenPulse is a robust backend system designed to orchestrate complex Generative AI workflows (Image, Video, Audio) at scale. It provides reliable task scheduling, real-time status tracking, and unified asset management for AI applications, supporting **7+ Major Cloud Providers**.
 
 ---
 
 ## 🚀 Core Features
 
-*   **Task Orchestration**: Efficiently manages long-running AI generation tasks using asynchronous queues (Redis MQ).
-*   **Reliable State Tracking**: Implements a "Double-Sync" mechanism—real-time updates via Redis Pub/Sub for speed, and PostgreSQL persistence for auditability and reliability.
+*   **Multi-Model Integrity**: Unified interface for **Text-to-Image**, **Text-to-Video**, and **Image-to-Video** across multiple providers.
+*   **Broad Provider Support**: Out-of-the-box support for **VolcEngine (ByteDance)**, **Tencent Cloud**, **Baidu Cloud**, **Kling AI**, **Minimax**, **DashScope (Alibaba)**, and **ComfyUI**.
+*   **Task Orchestration**: Efficiently manages long-running AI generation tasks using asynchronous queues (**Redis MQ** / **RabbitMQ**).
+*   **Reliable State Tracking**: Implements a "Double-Sync" mechanism—real-time updates via MQ Pub/Sub for speed, and PostgreSQL persistence for auditability.
 *   **Unified Storage Layer**: Abstracted asset management supporting Local Storage and S3/OSS.
-*   **ComfyUI & Diffusers Native Support**: Choice between node-based ComfyUI workflows or high-performance native `diffusers` pipelines for image generation.
-*   **Scalable Architecture**: decoupled ingestion, dispatching, and execution layers built with **FastAPI**, **SQLAlchemy (Async)**, and **Redis**.
+*   **Scalable Architecture**: Decoupled ingestion, dispatching, and execution layers built with **FastAPI**, **SQLAlchemy (Async)**, and **Redis**.
+
+---
+
+## 🧩 Supported Providers
+
+| Provider | ID | Capabilities |
+| :--- | :--- | :--- |
+| **VolcEngine** | `volcengine` | Image Gen, Video Gen |
+| **Tencent Cloud** | `tencent` | Image Gen (Hunyuan), Video Gen |
+| **Baidu Cloud** | `baidu` | Text-to-Video, Image-to-Video |
+| **Kling AI** | `kling` | High-Quality Video Generation |
+| **Minimax** | `minimax` | Video Generation, Speech |
+| **DashScope** | `dashscope` | Image Gen (Wanx), Video Gen |
+| **ComfyUI** | `comfyui` | Custom Node Workflows |
+| **Diffusers** | `diffusers` | Local Inference |
 
 ---
 
 ## 🛠️ Usage
 
-### Submitting a Workflow
-Submit a `text-to-image` task with the desired provider.
+### Submitting a Video Task
+Submit a `text-to-video` task with your preferred provider.
 
 ```http
 POST /task
 Content-Type: application/json
 
 {
-  "task_type": "text-to-image",
+  "task_type": "text-to-video",
   "params": {
-    "provider": "comfyui",
-    "prompt": "a futuristic cyberpunk city",
-    "workflow": { ... }, 
-    "server_address": "127.0.0.1:8188"
+    "provider": "kling",
+    "prompt": "a cinematic drone shot of a futuristic city at sunset",
+    "model_name": "kling-v1"
   }
 }
 ```
@@ -57,9 +72,8 @@ Poll or listen for updates to get the generated asset URLs.
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "completed",
   "result": {
-    "images": [
-      "http://api.genpulse.com/assets/550e8400.../result_0.png"
-    ]
+    "video_url": "https://api.genpulse.com/assets/2026/01/24/result.mp4",
+    "cover_url": "https://api.genpulse.com/assets/2026/01/24/cover.jpg"
   }
 }
 ```
@@ -85,27 +99,22 @@ Poll or listen for updates to get the generated asset URLs.
     ```
 
 4.  **Configure Environment**:
-    Create a `.env` file:
+    Create a `.env` file from `.env.example`:
     ```ini
     DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/genpulse
     REDIS_URL=redis://localhost:6379/0
-    STORAGE_TYPE=local # or s3
     
-    # If using MinIO (S3 Local):
-    # STORAGE_TYPE=s3
-    # S3_ENDPOINT_URL=http://localhost:9000
-    # S3_ACCESS_KEY=minioadmin
-    # S3_SECRET_KEY=minioadmin
+    # Provider Keys (Add as needed)
+    VOLC_ACCESS_KEY=...
+    VOLC_SECRET_KEY=...
+    KLING_AK=...
+    KLING_SK=...
     ```
 
 5.  **Run**:
     ```bash
     # Start API and Worker in one go (Dev mode)
     uv run genpulse dev
-
-    # OR start separately
-    uv run genpulse api
-    uv run genpulse worker
     ```
 
 ---
@@ -113,4 +122,4 @@ Poll or listen for updates to get the generated asset URLs.
 ## 👨‍💻 Development
 
 We follow a **Dev -> Test -> Main** branching strategy for stability.
-Please refer to internal documentation for contribution guidelines.
+Please refer to [AGENTS.md](./AGENTS.md) for detailed contribution guidelines and coding standards.

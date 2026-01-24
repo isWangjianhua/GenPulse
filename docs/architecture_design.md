@@ -7,7 +7,7 @@ GenPulse is a high-concurrency generative AI backend system supporting multi-mod
 ### Core Features
 - **Plugin-based Architecture**: Adopts a Registry Pattern where the core system is agnostic to specific business logic. Adding new capabilities (e.g., TTS) only requires adding a single Handler file without modifying the core.
 - **Hybrid Communication**: Supports both **HTTP+Polling** (immediate response + status check) and **Redis MQ** (direct message queue connection) for ingestion.
-- **Unified Execution Abstraction**: Defines a standard `BaseHandler` interface. Whether it's local model inference, ComfyUI forwarding, or external API calls, everything is encapsulated as a unified execution unit.
+- **Unified Execution Abstraction**: Defines a standard `BaseHandler` interface. Whether it's local model inference, ComfyUI forwarding, or external API calls (e.g., VolcEngine, Kling), everything is encapsulated as a unified execution unit.
 - **State Management**: Uses PostgreSQL for persistence and Redis for real-time state and message bus.
 - **Storage Strategy**: Object Storage (OSS/S3) hosts generated assets, supporting temporary links and CDN acceleration.
 
@@ -31,17 +31,17 @@ graph TD
 
     subgraph "Execution Layer (Worker)"
         RedisQueue -->|Pop Task| Worker[genpulse.worker]
-        Worker -->|Discovery| Registry[genpulse.features.registry]
+        Worker -->|Discovery| Registry[genpulse.handlers.registry]
         Worker -->|Call| Handler[Feature Handlers]
         
         Handler -->|Engine logic| Engines[genpulse.engines]
-        Handler -->|External logic| Clients[genpulse.clients]
+        Handler -->|Remote Call| Clients[genpulse.clients]
     end
 
     subgraph "Resource Layer"
         Engines -->|Comfy Adapters| ComfyInstance[ComfyUI Server]
         Engines -->|Local Pipeline| GPUNode[GPU/Torch]
-        Clients -->|REST/WS| CloudProvider[VolcEngine/OSS/S3]
+        Clients -->|REST/WS| CloudProviders[VolcEngine/Tencent/Kling/...]
     end
 
     subgraph "Storage Layer"
@@ -52,29 +52,33 @@ graph TD
 
 ## 3. Detailed Design
 
-### 3.1 The Core: Feature-Engine Architecture
+### 3.1 The Core: Handler-Client Architecture
 
-To enable "extension without modification," the system uses a **Registry Pattern** organized into three layers.
+To enable "extension without modification," the system uses a **Registry Pattern** organized into clear layers.
 
 **Directory Structure:**
 ```
 src/genpulse/
   ├── app.py           # FastAPI Application Factory & Gateway
   ├── worker.py        # Generic Task Worker (Consumer)
-  ├── features/        # Business Domain Logic (The "What")
+  ├── handlers/        # Business Domain Logic (The "What")
   │   ├── base.py      # BaseHandler Interface
   │   ├── registry.py  # Task-to-Handler Mapping
-  │   ├── image/       # Image Gen Features (text-to-image, etc)
-  │   └── video/       # Video Gen Features
-  ├── engines/         # Technical Implementations (The "How")
+  │   ├── image.py     # Image Gen Logic
+  │   └── video.py     # Video Gen Logic
+  ├── clients/         # External API Wrappers (The "Remote")
+  │   ├── base.py      # BaseClient (Polling/HTTP utils)
+  │   ├── volcengine/  # ByteDance VolcEngine Client
+  │   ├── tencent/     # Tencent Cloud Client
+  │   ├── baidu/       # Baidu Cloud Client
+  │   ├── kling/       # Kling AI Client
+  │   └── ...          # More providers
+  ├── engines/         # Local/Technical Implementations (The "How")
   │   ├── comfy_engine.py    # ComfyUI Integration
   │   └── diffusers_engine.py # Local Diffusers Integration
   ├── infra/           # Shared Infrastructure
   │   ├── database/    # PostgreSQL / SQLAlchemy
-  │   └── mq/          # Redis Message Queue
-  └── clients/         # External API Wrappers (The "Remote")
-      ├── volcengine/  # ByteDance VolcEngine Client
-      └── comfyui/     # ComfyUI WebSocket/HTTP Client
+  │   └── mq/          # Message Queue Abstraction (RedisMQ)
 ```
 
 **BaseHandler Interface:**
@@ -111,97 +115,40 @@ class TaskContext:
     async def set_failed(self, error: str): ...
 ```
 
-```json
-{
-  "task_id": "uuid-v4",
-  "task_type": "text-to-image",
-  "priority": "normal",
-  "params": {
-    "provider": "comfyui",
-    "prompt": "a cyberpunk city",
-    "workflow": { ... }
-  }
-}
-```
-
-The Worker uses the `task_type` to find a feature handler, which then inspects the `provider` to decide which engine or client to use.
-
 ### 3.3 Generic Worker Logic
 
 The Worker contains no domain-specific logic; it merely acts as a bridge:
 
-1.  Pop task from Redis.
+1.  Pop task from MQ (via `genpulse.infra.mq`).
 2.  Read `task_type`.
-3.  Get corresponding `FeatureHandler` from `genpulse.features.registry`.
+3.  Get corresponding `FeatureHandler` from `genpulse.handlers.registry`.
 4.  Instantiate and call `await handler.execute(task, context)`.
 5.  Feature handler delegates to `engines` or `clients`.
-6.  Capture return value or exception, update Redis/DB.
+6.  Capture return value or exception, update MQ/DB.
 
 ### 3.4 Extension Scenarios
 
--   **Scenario: Adding Voice Generation**
-    1.  Create `src/genpulse/features/voice/handlers.py`.
-    2.  Implement `BaseHandler`, calling a TTS engine from `engines/`.
-    3.  Add decorator `@registry.register("text-to-speech")`.
-    4.  **Done**. API automatically supports `task_type="text-to-speech"`.
+-   **Scenario: Adding a New Cloud Provider (e.g., Sora)**
+    1.  Create `src/genpulse/clients/sora/`.
+    2.  Implement `SoraClient` inheriting from `BaseClient`.
+    3.  Define schemas in `schemas.py`.
+    4.  Update `src/genpulse/handlers/video.py` to route `provider="sora"` to your new client.
+    5.  **Done**.
 
--   **Scenario: Adding specialized Image generation**
-    1.  Add logic to `src/genpulse/features/image/handlers.py` or create a new file.
-    2.  Use the `provider` pattern to switch between internal engines.
-    3.  Register new task types as needed.
+-   **Scenario: Adding a New Task Type (e.g., Text-to-Audio)**
+    1.  Create `src/genpulse/handlers/audio.py`.
+    2.  Implement `BaseHandler`.
+    3.  Add decorator `@registry.register("text-to-audio")`.
+    4.  **Done**. API automatically supports `task_type="text-to-audio"`.
 
 ### 3.5 Error Handling Strategy
 
-The system employs a unified error handling capability primarily driven by the **`EngineError`** exception hierarchy.
-
-1.  **Detection**: Engines raise `EngineError(message, provider="...")` when underlying calls fail.
+1.  **Detection**: Clients/Engines raise exceptions (wrapped or standard).
 2.  **Capture**: The Worker wraps the entire execution block in a robust `try/except`.
 3.  **Reporting**: On catching an exception, the Worker automatically:
     -   Logs the full stack trace with `loguru`.
-    -   Updates Redis/DB status to `FAILED`.
-    -   Propagates the error message and provider details to the result payload.
-
-### 3.6 Communication / Data Flow
-
-#### Method A: HTTP (For End Users)
-1.  **Submit**: `POST /task` -> Return `{ "status": "pending", "task_id": "xyz", ... }`.
-2.  **Process**: Backend processes asynchronously, updates Redis (MQ) and PostgreSQL (DB).
-3.  **Poll**: Client `GET /task/xyz` -> Return `{ "status": "processing", "progress": 50 }`.
-4.  **Complete**: Return `{ "status": "completed", "result": { "images": [...] } }`.
-
-#### Method B: Direct MQ (For Power Users / Integration)
-1.  **Submit**: Client sends JSON to Redis `tasks:pending` list via `LPUSH`.
-2.  **Process**: Same as above.
-3.  **Listen**: Client `SUBSCRIBE task_updates:{task_id}` channel to receive real-time JSON events for progress/results.
-
-### 3.6 Storage Strategy
-
--   **Object Storage (MinIO/S3)**:
-    -   Path Schema: `/YYYY/MM/DD/{user_id}/{task_id}.png` (or .mp4)
-    -   Lifecycle: Default long-term storage, configurable TTL.
--   **Database (PostgreSQL)**:
-    -   `tasks` table: Stores task metadata, status, parameters, result URLs, duration, and billing records.
-
-### 3.7 Service Orchestration & Startup Strategy
-
-The system is managed via the `genpulse` CLI (defined in `pyproject.toml` pointing to `genpulse.cli`).
-
-#### A. Development (Dev Mode)
-Command: `uv run genpulse dev`
-- **Behavior**: Starts both the FastAPI Server and the Task Worker in the same terminal/event loop.
-- **Workflow**: Ideal for local testing where you want to see both API logs and Worker logs together.
-
-#### B. Production (Separated Mode)
-Run as separate services:
-1. **API**: `uv run genpulse api`
-2. **Worker**: `uv run genpulse worker`
-
-This allows scaling the Worker independently from the API. The API only needs to handle I/O and DB/Redis fast transactions, while Workers handle CPU/GPU intensive tasks.
-
-#### C. Local Engines
-For engines like ComfyUI, you can:
-- Run them manually as separate processes.
-- The `FeatureHandler` connects to them via `server_address` (defaulting to `localhost:8188`).
+    -   Updates MQ/DB status to `FAILED`.
+    -   Propagates the error message.
 
 ## 4. Technology Stack
 
@@ -209,8 +156,10 @@ For engines like ComfyUI, you can:
 | :--- | :--- | :--- |
 | **Language** | Python 3.10+ | AI ecosystem standard, excellent Type Hint support |
 | **Web Framework** | **FastAPI** | High-performance async, native OpenAPI support |
-| **Queue / Broker** | **Redis** | Ultra-low latency, supports Pub/Sub & Lists, ideal for real-time AI tasks |
+| **Queue / Broker** | **Redis** / **RabbitMQ** | Ultra-low latency, supports Pub/Sub & Lists |
+| **MQ Abstraction** | **BaseMQ** | Abstract interface allowing easy switch between Redis/RabbitMQ/Celery |
 | **Database** | **PostgreSQL** | Robust relational storage, supports JSONB |
 | **ORM** | **SQLAlchemy(Async)** | Modern asynchronous ORM |
-| **Storage** | **MinIO (S3 Compatible)** | Self-hosted object storage, AWS S3 protocol compatible |
+| **HTTP Client** | **HTTPX** | Fully async HTTP client for external API calls |
+| **Validation** | **Pydantic V2** | Robust data validation and settings management |
 | **AI Inference** | **Diffusers** / **ComfyUI** | Industry standard inference libraries |
