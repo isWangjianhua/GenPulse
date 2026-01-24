@@ -36,12 +36,14 @@ class BaiduVodClient(BaseClient):
         self, 
         ak: Optional[str] = None, 
         sk: Optional[str] = None, 
-        endpoint: str = "vod.baidubce.com"
+        endpoint: Optional[str] = None
     ):
-        super().__init__(base_url=f"https://{endpoint}")
+        # Default endpoint: vod.baidubce.com
+        self.host = endpoint or "vod.baidubce.com"
+        super().__init__(base_url=f"https://{self.host}")
+        
         self.ak = ak or os.getenv('BAIDU_AK')
         self.sk = sk or os.getenv('BAIDU_SK')
-        self.host = endpoint
         
         if not self.ak or not self.sk:
             raise ValueError("Baidu AK and SK are required for authentication.")
@@ -94,52 +96,124 @@ class BaiduVodClient(BaseClient):
     async def text_to_video(
         self, 
         params: Union[Dict[str, Any], BaiduTextToVideoParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Text-to-Video task"""
+        """
+        Submit a Text-to-Video task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client (e.g. headers).
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/text_to_video", 
             BaiduTextToVideoParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def image_to_video(
         self, 
         params: Union[Dict[str, Any], BaiduImageToVideoParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit an Image-to-Video task"""
+        """
+        Submit an Image-to-Video task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/image_to_video", 
             BaiduImageToVideoParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def video_extend(
         self, 
         params: Union[Dict[str, Any], BaiduVideoExtendParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Video-Extend task"""
+        """
+        Submit a Video-Extend task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/video_extend", 
             BaiduVideoExtendParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def lip_sync(
         self, 
         params: Union[Dict[str, Any], BaiduLipSyncParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Lip-Sync task"""
+        """
+        Submit a Lip-Sync task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/lip_sync", 
             BaiduLipSyncParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
@@ -148,52 +222,124 @@ class BaiduVodClient(BaseClient):
     async def text_to_image(
         self, 
         params: Union[Dict[str, Any], BaiduTextToImageParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 5,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Text-to-Image task"""
+        """
+        Submit a Text-to-Image task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 5).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/text_to_image", 
             BaiduTextToImageParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def image_to_image(
         self, 
         params: Union[Dict[str, Any], BaiduImageToImageParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 5,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit an Image-to-Image task"""
+        """
+        Submit an Image-to-Image task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 5).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/image_to_image", 
             BaiduImageToImageParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def create_image_task(
         self, 
         params: Union[Dict[str, Any], BaiduLargeModelImageParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Large Model Image Generation task"""
+        """
+        Submit a Large Model Image Generation task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/create_image_task", 
             BaiduLargeModelImageParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
     async def video_to_video(
         self, 
         params: Union[Dict[str, Any], BaiduVideoToVideoParams],
+        wait: bool = True,
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
         **kwargs
     ) -> BaiduStatusResponse:
-        """Submit a Video-to-Video generation task"""
+        """
+        Submit a Video-to-Video generation task.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            BaiduStatusResponse: Final status of the task.
+        """
         return await self._generate_aigc_internal(
             "/v2/aigc/video_to_video", 
             BaiduVideoToVideoParams, 
             params, 
+            wait=wait,
+            callback=callback,
+            polling_interval=polling_interval,
             **kwargs
         )
 
@@ -205,7 +351,9 @@ class BaiduVodClient(BaseClient):
         params_model: Any,
         params: Union[Dict[str, Any], Any],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
+        **kwargs
     ) -> BaiduStatusResponse:
         """Shared logic for all Baidu AIGC tasks"""
         request = params if isinstance(params, params_model) else params_model(**params)
@@ -218,7 +366,8 @@ class BaiduVodClient(BaseClient):
         }
         
         logger.info(f"Baidu: Submitting task to {endpoint} (Model: {request.model})")
-        data = await self._request("POST", endpoint, json=payload)
+        # Pass kwargs (like headers, timeout) to the underlying _request
+        data = await self._request("POST", endpoint, json=payload, **kwargs)
         init_resp = BaiduAigcResponse(**data)
         
         task_id = init_resp.taskId
@@ -233,10 +382,10 @@ class BaiduVodClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=1800,
-            interval=15
+            interval=polling_interval
         )
 
-def create_baidu_vod_client(ak: Optional[str] = None, sk: Optional[str] = None) -> BaiduVodClient:
+def create_baidu_vod_client(ak: Optional[str] = None, sk: Optional[str] = None, endpoint: Optional[str] = None) -> BaiduVodClient:
     """Factory function for BaiduVodClient"""
-    return BaiduVodClient(ak=ak, sk=sk)
+    return BaiduVodClient(ak=ak, sk=sk, endpoint=endpoint)
 

@@ -2,7 +2,7 @@ import asyncio
 from loguru import logger
 import os
 import httpx
-from typing import Optional, Dict, Any, Union, Callable
+from typing import Optional, Dict, Any, Union, Callable, Literal
 from genpulse.clients.base import BaseClient
 from .schemas import (
     MinimaxVideoParams,
@@ -24,8 +24,8 @@ class MinimaxClient(BaseClient):
     Supports task submission, status polling, and file retrieval.
     """
 
-    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://api.minimaxi.com"):
-        super().__init__(base_url=base_url)
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+        super().__init__(base_url=base_url or "https://api.minimaxi.com")
         self.api_key = api_key or os.getenv('MINIMAX_API_KEY')
         if not self.api_key:
             raise ValueError("MiniMax API Key is missing.")
@@ -71,17 +71,30 @@ class MinimaxClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], MinimaxVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 10,
+        **kwargs
     ) -> MinimaxTaskStatusResponse:
         """
         Submit a video generation task (Text-to-Video / Image-to-Video).
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 10).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            MinimaxTaskStatusResponse: Final status of the task.
         """
         request = MinimaxVideoParams(**params) if isinstance(params, dict) else params
+        request.callback_url = request.callback_url or self.callback_url
         request_data = request.model_dump(exclude_none=True)
         
         logger.info(f"Minimax: Submitting video generation task (Model: {request.model})")
         
-        data = await self._request("POST", "/v1/video_generation", json=request_data)
+        data = await self._request("POST", "/v1/video_generation", json=request_data, **kwargs)
         init_resp = MinimaxVideoResponse(**data)
         
         if init_resp.base_resp.status_code != 0:
@@ -104,25 +117,33 @@ class MinimaxClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=1200,
-            interval=10
+            interval=polling_interval
         )
 
     # --- Image Generation Methods ---
 
     async def generate_image(
         self, 
-        params: Union[Dict[str, Any], MinimaxImageParams]
+        params: Union[Dict[str, Any], MinimaxImageParams],
+        **kwargs
     ) -> MinimaxImageResponse:
         """
         Submit an image generation task (Text-to-Image / Image-to-Image).
         This is typically a synchronous call returning image URLs directly.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            MinimaxImageResponse: Response containing generated image URLs.
         """
         request = MinimaxImageParams(**params) if isinstance(params, dict) else params
         request_data = request.model_dump(exclude_none=True)
         
         logger.info(f"Minimax: Submitting image generation task (Model: {request.model})")
         
-        data = await self._request("POST", "/v1/image_generation", json=request_data)
+        data = await self._request("POST", "/v1/image_generation", json=request_data, **kwargs)
         resp = MinimaxImageResponse(**data)
         
         if not resp.is_succeeded:
@@ -154,17 +175,29 @@ class MinimaxClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], MinimaxSpeechParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 10,
+        **kwargs
     ) -> MinimaxSpeechStatusResponse:
         """
         Submit a long text-to-speech task and optionally poll for completion.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 10).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            MinimaxSpeechStatusResponse: Final status of the task involving audio download URL.
         """
         request = MinimaxSpeechParams(**params) if isinstance(params, dict) else params
         request_data = request.model_dump(exclude_none=True)
         
         logger.info(f"Minimax: Submitting speech generation task (Model: {request.model})")
         
-        data = await self._request("POST", "/v1/t2a_async_v2", json=request_data)
+        data = await self._request("POST", "/v1/t2a_async_v2", json=request_data, **kwargs)
         init_resp = MinimaxSpeechResponse(**data)
         
         if init_resp.base_resp.status_code != 0:
@@ -187,7 +220,7 @@ class MinimaxClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=1800, # Long text might take longer
-            interval=10
+            interval=polling_interval
         )
 
     # --- Voice Management Methods ---
@@ -209,7 +242,7 @@ class MinimaxClient(BaseClient):
             
         return resp
 
-def create_minimax_client(api_key: Optional[str] = None, base_url: str = "https://api.minimaxi.com") -> MinimaxClient:
+def create_minimax_client(api_key: Optional[str] = None, base_url: Optional[str] = None) -> MinimaxClient:
     """Factory function for MinimaxClient"""
     return MinimaxClient(api_key=api_key, base_url=base_url)
 

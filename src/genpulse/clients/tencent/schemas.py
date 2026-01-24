@@ -11,31 +11,43 @@ class TencentTaskResponse(BaseModel):
 # --- Video Generation Schemas ---
 
 class AigcVideoTaskInputFileInfo(BaseModel):
-    """Input asset information for AIGC video generation task"""
+    """
+    Input asset information for AIGC video generation task.
+    Supports Image or Video references.
+    """
     Type: Literal["File", "Url"] = Field("Url", description="Resource type: 'File' (VOD File ID) or 'Url' (External URL)")
     Category: Optional[Literal["Image", "Video"]] = Field("Image", description="Asset category: 'Image' or 'Video'")
     FileId: Optional[str] = Field(None, description="VOD File ID, required if Type is 'File'")
     Url: Optional[str] = Field(None, description="Asset URL, required if Type is 'Url'")
     ReferenceType: Optional[Literal["asset", "style"]] = Field(None, description="Reference type: 'asset' (Subject/Person) or 'style' (Artistic style)")
-    ObjectId: Optional[str] = Field(None, description="Subject ID. Vidu models support 1-7 images as subject references via this field")
-    VoiceId: Optional[str] = Field(None, description="Voice ID for human-driven video generation in supported models")
+    ObjectId: Optional[str] = Field(None, description="Subject ID. Vidu models support 1-7 images as subject references")
+    VoiceId: Optional[str] = Field(None, description="Voice ID for human-driven video generation (e.g. Hunyuan)")
 
 class AigcVideoOutputConfig(BaseModel):
-    """Output configuration for video generation task"""
+    """
+    Output configuration for video generation task.
+    """
     StorageMode: Literal["Permanent", "Temporary"] = Field("Temporary", description="Storage mode: 'Permanent' or 'Temporary'")
     MediaName: Optional[str] = Field(None, description="Name of the output media file")
     ClassId: Optional[int] = Field(0, description="Category/Class ID for the organized storage")
-    ExpireTime: Optional[str] = Field(None, description="Expiration time in ISO format, only valid for Temporary storage")
-    Resolution: Optional[str] = Field(None, description="Output resolution, e.g., '1080P', '720P'")
-    AspectRatio: Optional[str] = Field(None, description="Aspect ratio, e.g., '16:9', '9:16', '1:1'")
-    AudioGeneration: Optional[Literal["Enabled", "Disabled"]] = Field("Disabled", description="Whether to generate audio for the video")
-    PersonGeneration: Optional[Literal["AllowAdult", "Disallowed"]] = Field(None, description="Human generation policy: 'AllowAdult' or 'Disallowed'")
-    InputComplianceCheck: Optional[Literal["Enabled", "Disabled"]] = Field("Enabled", description="Whether to perform compliance check on input assets")
-    OutputComplianceCheck: Optional[Literal["Enabled", "Disabled"]] = Field("Enabled", description="Whether to perform compliance check on generated output")
+    ExpireTime: Optional[str] = Field(None, description="Expiration time in ISO format (Temporary only)")
+    Resolution: Optional[str] = Field(None, description="Output resolution (e.g., '1080P')")
+    AspectRatio: Optional[str] = Field(None, description="Aspect ratio (e.g., '16:9')")
+    AudioGeneration: Optional[Literal["Enabled", "Disabled"]] = Field("Disabled", description="Generate audio")
+    PersonGeneration: Optional[Literal["AllowAdult", "Disallowed"]] = Field(None, description="Human generation policy")
+    InputComplianceCheck: Optional[Literal["Enabled", "Disabled"]] = Field("Enabled", description="Input compliance check")
+    OutputComplianceCheck: Optional[Literal["Enabled", "Disabled"]] = Field("Enabled", description="Output compliance check")
     EnhanceSwitch: Optional[Literal["Enabled", "Disabled"]] = Field(None, description="Switch for quality enhancement/upscaling")
 
 class TencentVideoParams(BaseModel):
-    """Request parameters for CreateAigcVideoTask API"""
+    """
+    Request parameters for CreateAigcVideoTask API.
+    
+    Args:
+        ModelName: 'Hailuo', 'Kling', 'Jimeng', 'Hunyuan', etc.
+        Prompt: Text description for generation.
+        FileInfos: List of reference assets (Image-to-Video).
+    """
     model_config = ConfigDict(extra="allow")
     
     SubAppId: Optional[int] = Field(None, description="VOD Application ID")
@@ -48,21 +60,23 @@ class TencentVideoParams(BaseModel):
     NegativePrompt: Optional[str] = Field(None, description="Terms to prevent in the generated video")
     EnhancePrompt: Optional[Literal["Enabled", "Disabled"]] = Field("Disabled", description="Automatic prompt optimization")
     OutputConfig: Optional[AigcVideoOutputConfig] = Field(None, description="Output configuration")
-    InputRegion: Optional[Literal["Oversea", "Mainland"]] = Field("Mainland", description="Region of input files. Choose 'Oversea' for non-Mainland URLs")
-    SceneType: Optional[str] = Field(None, description="Scene type, e.g., 'motion_control' for Kling")
-    SessionId: Optional[str] = Field(None, description="Idempotency key for deduplication (valid for 3 days)")
-    SessionContext: Optional[str] = Field(None, description="Context for transparency/tracking in callbacks")
-    TasksPriority: Optional[int] = Field(0, description="Task priority from -10 to 10. Higher value means higher priority")
-    ExtInfo: Optional[str] = Field(None, description="Reserved field for special purposes")
+    InputRegion: Optional[Literal["Oversea", "Mainland"]] = Field("Mainland", description="Region of input files")
+    SceneType: Optional[str] = Field(None, description="Scene type (e.g., 'motion_control' for Kling)")
+    SessionId: Optional[str] = Field(None, description="Idempotency key")
+    SessionContext: Optional[str] = Field(None, description="Context for transparency/tracking")
+    TasksPriority: Optional[int] = Field(0, description="Task priority (-10 to 10)")
+    ExtInfo: Optional[str] = Field(None, description="Reserved field")
 
 # --- Image Generation Schemas ---
 
 class TencentAigcImageInputFileInfo(BaseModel):
-    """Input image information for AIGC image generation task"""
+    """
+    Input image information for AIGC image generation task.
+    """
     Type: Literal["File", "Url"] = Field("Url", description="Resource type")
     FileId: Optional[str] = Field(None, description="VOD File ID")
     Url: Optional[str] = Field(None, description="Image URL")
-    Text: Optional[str] = Field(None, description="Reference text (if supported by model)")
+    Text: Optional[str] = Field(None, description="Reference text (if supported)")
 
 class TencentAigcImageOutputConfig(BaseModel):
     """Output configuration for image generation task"""
@@ -75,7 +89,14 @@ class TencentAigcImageOutputConfig(BaseModel):
     OutputComplianceCheck: Optional[Literal["Enabled", "Disabled"]] = Field("Enabled", description="Output compliance check")
 
 class TencentImageParams(BaseModel):
-    """Request parameters for CreateAigcImageTask API"""
+    """
+    Request parameters for CreateAigcImageTask API.
+
+    Args:
+        ModelName: 'Hunyuan', 'GEM', 'Qwen'.
+        Prompt: Text description for image.
+        FileInfos: Reference images.
+    """
     model_config = ConfigDict(extra="allow")
     
     SubAppId: Optional[int] = Field(None, description="VOD Application ID")

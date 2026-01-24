@@ -27,27 +27,34 @@ class TencentVodClient(BaseClient):
         self, 
         secret_id: Optional[str] = None, 
         secret_key: Optional[str] = None, 
-        region: str = "ap-guangzhou",
-        endpoint: str = "vod.tencentcloudapi.com",
-        sub_app_id: Optional[int] = None
+        sub_app_id: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        region: Optional[str] = None
     ):
-        super().__init__(base_url=f"https://{endpoint}")
+        # BaseClient expectation regarding base_url might be informational
+        self.endpoint_val = endpoint or "vod.tencentcloudapi.com"
+        super().__init__(base_url=f"https://{self.endpoint_val}")
         
-        sid = secret_id or os.getenv("TENCENTCLOUD_SECRET_ID")
-        skey = secret_key or os.getenv("TENCENTCLOUD_SECRET_KEY")
-        self.sub_app_id = sub_app_id or (int(os.getenv("TENCENTCLOUD_SUBAPP_ID")) if os.getenv("TENCENTCLOUD_SUBAPP_ID") else None)
+        self.secret_id = secret_id or os.getenv("TENCENTCLOUD_SECRET_ID")
+        self.secret_key = secret_key or os.getenv("TENCENTCLOUD_SECRET_KEY")
         
-        if not sid or not skey:
+        # Parse SubAppId
+        sub_app_id_val = sub_app_id or os.getenv("TENCENTCLOUD_SUBAPP_ID")
+        self.sub_app_id = int(sub_app_id_val) if sub_app_id_val else None
+        
+        self.region = region or os.getenv("TENCENTCLOUD_REGION", "ap-guangzhou")
+        
+        if not self.secret_id or not self.secret_key:
             raise ValueError("Tencent Cloud SecretId and SecretKey are required.")
             
-        cred = credential.Credential(sid, skey)
+        cred = credential.Credential(self.secret_id, self.secret_key)
         http_profile = HttpProfile()
-        http_profile.endpoint = endpoint
+        http_profile.endpoint = self.endpoint_val
         
         client_profile = ClientProfile()
         client_profile.http_profile = http_profile
         
-        self.client = vod_client.VodClient(cred, region, client_profile)
+        self.client = vod_client.VodClient(cred, self.region, client_profile)
 
     async def get_task_status(self, task_id: str, sub_app_id: Optional[int] = None) -> TencentTaskDetailResponse:
         """
@@ -67,14 +74,30 @@ class TencentVodClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], TencentVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
+        **kwargs
     ) -> TencentTaskDetailResponse:
         """
         Create an AIGC video task and optionally poll for completion.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional parameters merged into the request.
+
+        Returns:
+            TencentTaskDetailResponse: Final status and details of the task.
         """
         request = TencentVideoParams(**params) if isinstance(params, dict) else params
         request.SubAppId = request.SubAppId or self.sub_app_id
+        
         request_data = request.model_dump(exclude_none=True)
+        # Merge additional kwargs into request_data
+        request_data.update(kwargs)
+
         logger.info(f"Tencent: Creating AIGC video task (Model: {request.ModelName})")
         req = models.CreateAigcVideoTaskRequest()
         req.from_json_string(json.dumps(request_data))
@@ -103,22 +126,38 @@ class TencentVodClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=1800,
-            interval=15
+            interval=polling_interval
         )
 
     async def generate_image(
         self, 
         params: Union[Dict[str, Any], TencentImageParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 5,
+        **kwargs
     ) -> TencentTaskDetailResponse:
         """
         Create an AIGC image task and optionally poll for completion.
         Supports both Gemini (GEM), Qwen, and Hunyuan models.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 5).
+            **kwargs: Additional parameters merged into the request.
+
+        Returns:
+            TencentTaskDetailResponse: Final status and details of the task.
         """
         request = TencentImageParams(**params) if isinstance(params, dict) else params
         request.SubAppId = request.SubAppId or self.sub_app_id
+        
         request_data = request.model_dump(exclude_none=True)
+        # Merge additional kwargs into request_data
+        request_data.update(kwargs)
+
         logger.info(f"Tencent: Creating AIGC image task (Model: {request.ModelName})")
         req = models.CreateAigcImageTaskRequest()
         req.from_json_string(json.dumps(request_data))
@@ -146,14 +185,22 @@ class TencentVodClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=600, # Image generation is usually faster
-            interval=10
+            interval=polling_interval
         )
 
 def create_tencent_vod_client(
     secret_id: Optional[str] = None, 
     secret_key: Optional[str] = None, 
-    region: str = "ap-guangzhou"
+    sub_app_id: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    region: Optional[str] = None
 ) -> TencentVodClient:
     """Factory function for TencentVodClient"""
-    return TencentVodClient(secret_id=secret_id, secret_key=secret_key, region=region)
+    return TencentVodClient(
+        secret_id=secret_id, 
+        secret_key=secret_key, 
+        sub_app_id=sub_app_id,
+        endpoint=endpoint,
+        region=region
+    )
 
