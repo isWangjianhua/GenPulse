@@ -29,16 +29,31 @@ class VolcEngineClient(BaseClient):
             api_key=self.api_key
         )
 
-    async def generate_image(self, params: Union[Dict[str, Any], VolcImageParams]) -> ArkResponse:
-        """Text-to-Image / Image-to-Image (Synchronous API)"""
+    async def generate_image(
+        self, 
+        params: Union[Dict[str, Any], VolcImageParams],
+        **kwargs
+    ) -> ArkResponse:
+        """
+        Text-to-Image / Image-to-Image (Synchronous API).
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            **kwargs: Additional arguments passed to the SDK.
+
+        Returns:
+            ArkResponse: Synchronous response containing generated images.
+        """
         request = VolcImageParams(**params) if isinstance(params, dict) else params
         request_data = request.model_dump(exclude_none=True, mode="json")
         
         logger.info(f"Volcengine: Sending image generation request: {request_data}")
         
+        sdk_args = {**request_data, **kwargs}
+        
         response = await asyncio.to_thread(
             self.client.images.generate,
-            **request_data
+            **sdk_args
         )
         
         resp_dict = response.model_dump() if hasattr(response, 'model_dump') else response.__dict__
@@ -57,10 +72,22 @@ class VolcEngineClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], VolcVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 5,
+        **kwargs
     ) -> VolcVideoStatusResponse:
         """
         Create a video task and optionally poll for completion.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 5).
+            **kwargs: Additional arguments passed to the SDK.
+
+        Returns:
+            VolcVideoStatusResponse: Final status of the task.
         """
         # 1. Create the task
         request = VolcVideoParams(**params) if isinstance(params, dict) else params
@@ -68,9 +95,11 @@ class VolcEngineClient(BaseClient):
         
         logger.info(f"Volcengine: Creating video generation task: {request_data}")
         
+        sdk_args = {**request_data, **kwargs}
+
         creation_resp = await asyncio.to_thread(
             self.client.content_generation.tasks.create,
-            **request_data
+            **sdk_args
         )
         task_id = creation_resp.id
         
@@ -84,7 +113,8 @@ class VolcEngineClient(BaseClient):
             check_success_func=lambda resp: resp.status == "succeeded",
             check_failed_func=lambda resp: resp.status in ["failed", "cancelled", "expired"],
             callback=callback,
-            timeout=600  # Video generation might be slow
+            timeout=600,  # Video generation might be slow
+            interval=polling_interval
         )
 
 def create_volcengine_client(api_key: Optional[str] = None, base_url: Optional[str] = None) -> VolcEngineClient:
@@ -92,4 +122,3 @@ def create_volcengine_client(api_key: Optional[str] = None, base_url: Optional[s
     Factory function to create a VolcEngineClient instance.
     """
     return VolcEngineClient(api_key=api_key, base_url=base_url)
-

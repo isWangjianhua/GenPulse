@@ -24,9 +24,9 @@ class KlingClient(BaseClient):
         self, 
         ak: Optional[str] = None, 
         sk: Optional[str] = None, 
-        base_url: str = "https://api.klingai.com"
+        base_url: Optional[str] = None
     ):
-        super().__init__(base_url=base_url)
+        super().__init__(base_url=base_url or "https://api.klingai.com")
         self.ak = ak or os.getenv('KLING_AK')
         self.sk = sk or os.getenv('KLING_SK')
         
@@ -63,45 +63,93 @@ class KlingClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], KlingTextToVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
+        **kwargs
     ) -> KlingStatusResponse:
-        """Text-to-Video generation"""
+        """
+        Text-to-Video generation.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            KlingStatusResponse: Final status of the task.
+        """
         return await self._generate_video_internal(
             endpoint="/v1/videos/text2video",
             params_model=KlingTextToVideoParams,
             params=params,
             wait=wait,
-            callback=callback
+            callback=callback,
+            polling_interval=polling_interval,
+            **kwargs
         )
 
     async def image_to_video(
         self, 
         params: Union[Dict[str, Any], KlingImageToVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
+        **kwargs
     ) -> KlingStatusResponse:
-        """Image-to-Video generation (Start frame / End frame)"""
+        """
+        Image-to-Video generation (Start frame / End frame).
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            KlingStatusResponse: Final status of the task.
+        """
         return await self._generate_video_internal(
             endpoint="/v1/videos/image2video",
             params_model=KlingImageToVideoParams,
             params=params,
             wait=wait,
-            callback=callback
+            callback=callback,
+            polling_interval=polling_interval,
+            **kwargs
         )
 
     async def multi_image_to_video(
         self, 
         params: Union[Dict[str, Any], KlingMultiImageToVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 15,
+        **kwargs
     ) -> KlingStatusResponse:
-        """Multi-image reference video generation"""
+        """
+        Multi-image reference video generation.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 15).
+            **kwargs: Additional arguments passed to the API client.
+
+        Returns:
+            KlingStatusResponse: Final status of the task.
+        """
         return await self._generate_video_internal(
             endpoint="/v1/videos/multi-image2video",
             params_model=KlingMultiImageToVideoParams,
             params=params,
             wait=wait,
-            callback=callback
+            callback=callback,
+            polling_interval=polling_interval,
+            **kwargs
         )
 
     # --- Internal Helper ---
@@ -112,7 +160,9 @@ class KlingClient(BaseClient):
         params_model: Any,
         params: Union[Dict, Any],
         wait: bool,
-        callback: Optional[Callable]
+        callback: Optional[Callable],
+        polling_interval: int,
+        **kwargs
     ) -> KlingStatusResponse:
         """Shared logic for task submission and optional polling"""
         request = params_model(**params) if isinstance(params, dict) else params
@@ -120,7 +170,7 @@ class KlingClient(BaseClient):
         
         logger.info(f"Kling: Submitting task to {endpoint}")
         
-        data = await self._request("POST", endpoint, json=request_data)
+        data = await self._request("POST", endpoint, json=request_data, **kwargs)
         init_resp = KlingStatusResponse(**data)
         
         if init_resp.code != 0:
@@ -138,10 +188,10 @@ class KlingClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=2400,
-            interval=15
+            interval=polling_interval
         )
 
 def create_kling_client(ak: Optional[str] = None, sk: Optional[str] = None, base_url: Optional[str] = None) -> KlingClient:
     """Factory for KlingClient"""
-    return KlingClient(ak=ak, sk=sk, base_url=base_url or "https://api.klingai.com")
+    return KlingClient(ak=ak, sk=sk, base_url=base_url)
 

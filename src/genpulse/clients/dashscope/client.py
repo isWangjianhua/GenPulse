@@ -63,10 +63,22 @@ class DashScopeClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], DashScopeImageParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 5,
+        **kwargs
     ) -> DashScopeStatusResponse:
         """
         Submits an image generation task and optionally polls for completion.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 5).
+            **kwargs: Additional arguments passed to the DashScope SDK.
+
+        Returns:
+            DashScopeStatusResponse: Final status of the task.
         """
         # 1. Prepare request
         request = DashScopeImageParams(**params) if isinstance(params, dict) else params
@@ -78,17 +90,19 @@ class DashScopeClient(BaseClient):
         
         logger.info(f"DashScope: Submitting task for {model}...")
         
+        # Merge sdk arguments
+        sdk_args = {**request_data, **kwargs}
+        
         # 2. Async Submission
         response = await asyncio.to_thread(
             ImageSynthesis.async_call,
             model=model,
             prompt=prompt,
-            **request_data
+            **sdk_args
         )
         
         if response.status_code != 200:
             logger.error(f"DashScope: Submission failed: {response.message}")
-            # If failed immediately, return a dummy response with error info
             return DashScopeStatusResponse(
                 task_id="failed",
                 task_status="FAILED",
@@ -110,16 +124,24 @@ class DashScopeClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=600,
-            interval=5 # 5 seconds as recommended by Aliyun
+            interval=polling_interval
         )
 
     async def edit_image(
         self, 
-        params: Union[Dict[str, Any], DashScopeImageEditParams]
+        params: Union[Dict[str, Any], DashScopeImageEditParams],
+        **kwargs
     ) -> DashScopeStatusResponse:
         """
-        DashScope Image Editing (Synchronous Call via MultiModalConversation)
+        DashScope Image Editing (Synchronous Call via MultiModalConversation).
         Useful for qwen-image-edit-max and qwen-image-edit-plus models.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            **kwargs: Additional arguments passed to the DashScope SDK.
+
+        Returns:
+            DashScopeStatusResponse: Response containing generated image results.
         """
         # 1. Prepare request
         request = DashScopeImageEditParams(**params) if isinstance(params, dict) else params
@@ -128,6 +150,8 @@ class DashScopeClient(BaseClient):
         model = request_data.pop("model")
         
         logger.info(f"DashScope: Submitting image edit request for {model}...")
+
+        sdk_args = {**request_data, **kwargs}
         
         # 2. Synchronous Call (wrapped in thread)
         response = await asyncio.to_thread(
@@ -135,7 +159,7 @@ class DashScopeClient(BaseClient):
             api_key=self.api_key,
             model=model,
             stream=False,
-            **request_data
+            **sdk_args
         )
         
         # 3. Map Response
@@ -191,11 +215,23 @@ class DashScopeClient(BaseClient):
         self, 
         params: Union[Dict[str, Any], DashScopeVideoParams],
         wait: bool = True,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        polling_interval: int = 10,
+        **kwargs
     ) -> DashScopeStatusResponse:
         """
         Submits a video generation task and optionally polls for completion.
         Supports first_frame_url and last_frame_url.
+
+        Args:
+            params: Dictionary or Pydantic model containing task parameters.
+            wait: Whether to wait for the task to complete.
+            callback: Optional async callback for status updates.
+            polling_interval: Interval in seconds for status checks (default 10).
+            **kwargs: Additional arguments passed to the DashScope SDK.
+
+        Returns:
+            DashScopeStatusResponse: Final status of the task.
         """
         # 1. Prepare request
         request = DashScopeVideoParams(**params) if isinstance(params, dict) else params
@@ -203,11 +239,14 @@ class DashScopeClient(BaseClient):
         
         logger.info(f"DashScope: Submitting video task for {request_data.get('model')}...")
         
+        sdk_args = {**request_data, **kwargs}
+        if "api_key" not in sdk_args:
+            sdk_args["api_key"] = self.api_key
+
         # 2. Async Submission
         response = await asyncio.to_thread(
             VideoSynthesis.async_call,
-            api_key=self.api_key,
-            **request_data
+            **sdk_args
         )
         
         if response.status_code != 200:
@@ -232,7 +271,7 @@ class DashScopeClient(BaseClient):
             check_failed_func=lambda resp: resp.is_finished and not resp.is_succeeded,
             callback=callback,
             timeout=1200, # Video generation takes longer
-            interval=10
+            interval=polling_interval
         )
 
 def create_dashscope_client(api_key: Optional[str] = None, base_url: Optional[str] = None) -> DashScopeClient:
