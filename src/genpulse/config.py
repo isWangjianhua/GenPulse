@@ -39,6 +39,12 @@ ENV = get_env()
 DATABASE_URL = settings.DATABASE_URL
 REDIS_URL = settings.REDIS.URL
 
+# MQ Settings
+MQ_TYPE = settings.MQ.get("TYPE", "redis")
+RABBITMQ_URL = settings.MQ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+CELERY_BROKER_URL = settings.MQ.get("CELERY_BROKER_URL", settings.REDIS.URL)
+CELERY_RESULT_BACKEND = settings.MQ.get("CELERY_RESULT_BACKEND", settings.REDIS.URL)
+
 STORAGE_TYPE = settings.STORAGE.TYPE
 STORAGE_LOCAL_PATH = settings.STORAGE.LOCAL_PATH
 STORAGE_BASE_URL = settings.STORAGE.BASE_URL

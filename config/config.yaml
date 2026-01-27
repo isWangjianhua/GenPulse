@@ -2,6 +2,13 @@
 # Environment-specific overrides can be placed in development:, production:, or test:
 
 default:
+  # Message Queue Settings
+  mq:
+    type: "redis"  # Options: redis, rabbitmq, celery
+    rabbitmq_url: "amqp://guest:guest@localhost:5672/"
+    celery_broker_url: "redis://localhost:6379/0"
+    celery_result_backend: "redis://localhost:6379/1"
+  
   # Redis Queue settings
   redis:
     task_queue_name: "tasks:pending"
