@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 from loguru import logger
 from genpulse.engines.base import BaseEngine
 from genpulse.infra.storage import get_storage
-from genpulse.features.registry import registry
+from genpulse.handlers.registry import registry
 from genpulse.types import TaskContext, EngineError
 
 # Global cache for pipelines to avoid repeated loading

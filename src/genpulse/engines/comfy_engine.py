@@ -5,7 +5,8 @@ from loguru import logger
 from genpulse.engines.base import BaseEngine
 from genpulse.clients.comfyui.client import ComfyClient
 from genpulse.infra.storage import get_storage
-from genpulse.features.registry import registry
+from genpulse.handlers.registry import registry
+from genpulse.types import TaskContext
 from genpulse import config
 
 @registry.register("comfyui")
