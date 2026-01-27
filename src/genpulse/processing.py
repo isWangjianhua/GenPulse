@@ -7,13 +7,16 @@ It can be used by both the native Worker and Celery tasks.
 import json
 import importlib
 import os
+import asyncio
 from typing import Optional
 from loguru import logger
 
 from genpulse.handlers.registry import registry
 from genpulse.infra.database.manager import DBManager
 from genpulse.infra.mq import get_mq
-from genpulse.types import TaskContext, TaskStatus, EngineError
+from genpulse.infra.rate_limiter import RateLimiter
+from genpulse.config import RATE_LIMITS
+from genpulse.types import TaskContext, TaskStatus, EngineError, RateLimitExceeded
 
 
 class TaskProcessor:
@@ -26,6 +29,7 @@ class TaskProcessor:
     
     def __init__(self):
         self.mq = get_mq()
+        self.rate_limiter = RateLimiter()
         self._handlers_discovered = False
     
     def _discover_handlers(self):
@@ -62,7 +66,7 @@ class TaskProcessor:
             The task result dict if successful, None otherwise.
             
         Raises:
-            No exceptions are raised; all errors are caught and logged.
+            RateLimitExceeded: If flow control limits are hit (caller should retry).
         """
         # Ensure handlers are discovered
         self._discover_handlers()
@@ -70,9 +74,22 @@ class TaskProcessor:
         task_data = {}
         try:
             task_data = json.loads(task_json)
+        except json.JSONDecodeError:
+            logger.error("Failed to decode task JSON")
+            return None
+
+        # Rate Limit Check
+        params = task_data.get("params", {})
+        provider = params.get("provider", "default")
+        limit = RATE_LIMITS.get(provider, RATE_LIMITS.get("default", 10.0))
+        
+        if not await self.rate_limiter.acquire(provider, limit):
+            logger.warning(f"Rate limit exceeded for {provider}. Requesting retry.")
+            raise RateLimitExceeded(provider)
+
+        try:
             task_id = task_data.get("task_id")
             task_type = task_data.get("task_type")
-            params = task_data.get("params", {})
 
             # Helper to allow handler/engine to update status/progress
             async def update_status_func(status: str, progress: int = None, result: dict = None):
@@ -118,6 +135,10 @@ class TaskProcessor:
             return result
 
         except Exception as e:
+            # Allow rate limit exceptions to bubble up for retry
+            if isinstance(e, RateLimitExceeded):
+                raise e
+
             msg = str(e)
             logger.exception(f"Failed to process task: {msg}")
             

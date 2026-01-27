@@ -8,6 +8,8 @@ from genpulse.infra.mq.celery_app import celery_app
 from genpulse.processing import TaskProcessor
 
 
+from genpulse.types import RateLimitExceeded
+
 @celery_app.task(name="genpulse.tasks.execute_task", bind=True)
 def execute_task(self, task_json: str):
     """
@@ -22,15 +24,19 @@ def execute_task(self, task_json: str):
     processor = TaskProcessor()
     
     # Run async processing in sync context
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        # If loop is already running, create a new one
+    # Note: Handling async loops inside Celery is tricky.
+    # Ideally should use celery-pool-asyncio or similar, but for now:
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
     try:
         result = loop.run_until_complete(processor.process(task_json))
         return result
+    except RateLimitExceeded as exc:
+        # If rate limit hit, retry task
+        raise self.retry(exc=exc, countdown=exc.retry_after)
     finally:
-        # Don't close the loop as it might be reused
         pass

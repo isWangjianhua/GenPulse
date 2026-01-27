@@ -45,6 +45,9 @@ RABBITMQ_URL = settings.MQ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:567
 CELERY_BROKER_URL = settings.MQ.get("CELERY_BROKER_URL", settings.REDIS.URL)
 CELERY_RESULT_BACKEND = settings.MQ.get("CELERY_RESULT_BACKEND", settings.REDIS.URL)
 
+# Rate Limits
+RATE_LIMITS = settings.get("ratelimits", {"default": 10.0})
+
 STORAGE_TYPE = settings.STORAGE.TYPE
 STORAGE_LOCAL_PATH = settings.STORAGE.LOCAL_PATH
 STORAGE_BASE_URL = settings.STORAGE.BASE_URL

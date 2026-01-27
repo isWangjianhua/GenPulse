@@ -42,6 +42,13 @@ class ValidationError(GenPulseError):
     """Errors during parameter validation"""
     pass
 
+class RateLimitExceeded(GenPulseError):
+    """Raised when flow control limits are hit"""
+    def __init__(self, provider: str, retry_after: int = 1):
+        self.provider = provider
+        self.retry_after = retry_after
+        super().__init__(f"Rate limit exceeded for {provider}")
+
 class TaskParams(BaseModel):
     """
     Universal parameter schema derived from client patterns (Kling, Volcengine, etc.).

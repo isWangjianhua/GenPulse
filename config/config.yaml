@@ -9,6 +9,13 @@ default:
     celery_broker_url: "redis://localhost:6379/0"
     celery_result_backend: "redis://localhost:6379/1"
   
+  # Rate Limits (requests per second)
+  ratelimits:
+    default: 10.0 
+    tencent: 2.0
+    volcengine: 5.0
+    kling: 1.0
+  
   # Redis Queue settings
   redis:
     task_queue_name: "tasks:pending"
