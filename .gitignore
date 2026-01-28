@@ -171,3 +171,9 @@ wt/
 /data/
 /data/assets/
 logs/
+
+# Local data directory
+data/
+*.db
+*.db-shm
+*.db-wal
