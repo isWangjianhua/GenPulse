@@ -14,13 +14,20 @@ mq = get_mq()
 # from genpulse.types import TaskRequest (Deprecated)
 from genpulse.schemas.request import TaskRequest
 
+from genpulse.utils.upload_helper import process_base64_inputs
+
 @router.post("")
 async def create_task(req: TaskRequest):
     task_id = str(uuid.uuid4())
     
+    # 0. Handle Base64 Uploads
+    # Convert params to dict and scan for Base64 Data URIs to upload
+    raw_params = req.params.model_dump()
+    processed_params = await process_base64_inputs(raw_params)
+    
     # 1. Persist to DB
     try:
-        await DBManager.create_task(task_id, req.task_type, req.params.model_dump())
+        await DBManager.create_task(task_id, req.task_type, processed_params)
     except Exception as e:
         logger.error(f"DB Error: {e}")
     
@@ -29,7 +36,7 @@ async def create_task(req: TaskRequest):
         "task_id": task_id,
         "task_type": req.task_type,
         "provider": req.provider,
-        "params": req.params.model_dump(),
+        "params": processed_params,
         "priority": req.priority,
         "callback_url": req.callback_url
     }

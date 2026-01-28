@@ -32,8 +32,11 @@ def create_api() -> FastAPI:
     # 3. Setup Admin Dashboard
     from genpulse.infra.database.engine import engine
     from genpulse.admin import init_admin
-    # Ensure admin is initialized (it mounts itself to app)
     init_admin(app, engine)
+    
+    # 4. Storage Router
+    from genpulse.routers.storage import router as storage_router
+    app.include_router(storage_router)
 
     # Health check
     @app.get("/health")
