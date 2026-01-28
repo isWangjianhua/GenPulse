@@ -2,7 +2,7 @@ import click
 import uvicorn
 import asyncio
 import logging
-from genpulse.app import create_api, create_worker
+from genpulse.app import create_api
 from genpulse.infra.database.engine import init_db as _init_db
 
 from genpulse.infra.log import setup_logging
