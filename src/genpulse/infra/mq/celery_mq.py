@@ -89,7 +89,50 @@ class CeleryMQ(BaseMQ):
         if data:
             return json.loads(data)
         return None
-    
+
+    async def send_task_wait(self, task_data: dict, timeout: int = 60) -> dict:
+        """
+        Send a task and wait for its completion using Redis Pub/Sub.
+        This provides the RPC-like experience.
+        """
+        task_id = task_data.get("task_id")
+        if not task_id:
+            raise ValueError("Task data must contain 'task_id'")
+
+        # 1. Subscribe to updates FIRST to avoid race conditions
+        pubsub = self.redis_client.pubsub()
+        channel = f"{config.REDIS_PREFIX}task_updates:{task_id}"
+        await pubsub.subscribe(channel)
+
+        try:
+            # 2. Push task
+            # Ensure task_data is string for push_task
+            payload = json.dumps(task_data) if isinstance(task_data, dict) else task_data
+            await self.push_task(payload)
+            
+            # 3. Wait loop
+            start_time = time.time()
+            while (time.time() - start_time) < timeout:
+                # Poll for message with short timeout
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+                
+                if message:
+                    try:
+                        data = json.loads(message["data"])
+                        status = data.get("status")
+                        if status in ["completed", "failed"]:
+                            return data
+                    except Exception:
+                        pass # Ignore malformed messages
+                
+        except Exception as e:
+            raise e
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+            
+        raise TimeoutError(f"Task {task_id} timed out after {timeout}s")
+
     async def close(self):
         """Close Redis connection."""
         await self.redis_client.aclose()

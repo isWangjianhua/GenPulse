@@ -40,8 +40,8 @@ DATABASE_URL = settings.DATABASE_URL
 REDIS_URL = settings.REDIS.URL
 
 # MQ Settings
-MQ_TYPE = settings.MQ.get("TYPE", "redis")
-RABBITMQ_URL = settings.MQ.get("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+MQ_TYPE = settings.MQ.get("TYPE", "celery")
+
 CELERY_BROKER_URL = settings.MQ.get("CELERY_BROKER_URL", settings.REDIS.URL)
 CELERY_RESULT_BACKEND = settings.MQ.get("CELERY_RESULT_BACKEND", settings.REDIS.URL)
 

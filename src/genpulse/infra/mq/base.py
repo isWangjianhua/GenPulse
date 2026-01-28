@@ -37,3 +37,16 @@ class BaseMQ(abc.ABC):
         """Close connection to the MQ provider."""
         pass
 
+    async def send_task_wait(self, task_data: Dict[str, Any], timeout: int = 60) -> Dict[str, Any]:
+        """
+        Send a task and wait for its completion (RPC style).
+        
+        Args:
+            task_data: Task payload dict.
+            timeout: Max wait time in seconds.
+            
+        Returns:
+            The final result dict.
+        """
+        raise NotImplementedError("RPC mode not implemented for this MQ backend")
+

@@ -36,43 +36,49 @@ def api(host, port, reload):
 
 @cli.command()
 def worker():
-    """Start the Worker Process"""
-    click.echo("Starting Worker...")
-    worker = create_worker()
-    
-    import signal
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: worker.stop())
-        
-    asyncio.run(worker.run())
+    """Start the Celery Worker Process"""
+    click.echo("Starting Celery Worker...")
+    import subprocess
+    import sys
+    # Use subprocess to run celery
+    cmd = [sys.executable, "-m", "celery", "-A", "genpulse.infra.mq.celery_app", "worker", "--loglevel=info"]
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        pass
 
 @cli.command()
 def dev():
     """Start API and Worker in a combined process (recommended for Local Dev)"""
-    click.echo("Starting GenPulse in Development Mode...")
+    click.echo("Starting GenPulse in Development Mode (API + Celery)...")
+    import subprocess
+    import sys
     
-    async def run_all():
-        # 1. Ensure DB
-        await _init_db()
-        
-        # 2. Setup Worker
-        worker = create_worker()
-        
-        # 3. Setup API (direct uvicorn instance)
-        config = uvicorn.Config(create_api(), host="0.0.0.0", port=8000, log_level="info")
-        server = uvicorn.Server(config)
-        
-        # 4. Run both concurrently
-        await asyncio.gather(
-            server.serve(),
-            worker.run()
-        )
-
+    # 1. Ensure DB (run async in sync context)
+    asyncio.run(_init_db())
+    
+    # 2. Start Processes
+    # API
+    api_cmd = [sys.executable, "-m", "uvicorn", "genpulse.app:create_api", "--host", "0.0.0.0", "--port", "8000", "--reload", "--factory"]
+    api_proc = subprocess.Popen(api_cmd)
+    
+    # Worker
+    worker_cmd = [sys.executable, "-m", "celery", "-A", "genpulse.infra.mq.celery_app", "worker", "--loglevel=info"]
+    worker_proc = subprocess.Popen(worker_cmd)
+    
+    click.echo(f"Services started. API: {api_proc.pid}, Worker: {worker_proc.pid}")
+    
     try:
-        asyncio.run(run_all())
+        api_proc.wait()
+        worker_proc.wait()
     except KeyboardInterrupt:
-        pass
+        click.echo("\nStopping services...")
+        api_proc.terminate()
+        worker_proc.terminate()
+    except Exception as e:
+        click.echo(f"Error: {e}")
+        api_proc.terminate()
+        worker_proc.terminate()
 
 if __name__ == "__main__":
     cli()

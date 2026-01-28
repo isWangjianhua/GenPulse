@@ -38,6 +38,15 @@ class EngineError(GenPulseError):
         self.details = details or {}
         super().__init__(self.message)
 
+class TransientError(GenPulseError):
+    """
+    Error representing a temporary failure (e.g. network timeout).
+    Tasks raising this should be retried explicitly.
+    """
+    def __init__(self, message: str, retry_after: int = 2):
+        self.retry_after = retry_after
+        super().__init__(message)
+
 class ValidationError(GenPulseError):
     """Errors during parameter validation"""
     pass

@@ -17,7 +17,7 @@ This document outlines the strategic direction for GenPulse's development.
 - [x] **Celery Integration**: Adopted as primary worker runtime (Redis Broker).
 - [x] **Dual-Mode Support**: Implemented HTTP Polling + Direct RPC Microservice pattern.
 - [ ] **Message Reliability**: DLQ and Retry policies (Native in Celery, configuration tuning needed).
-- [ ] **RabbitMQ Support**: (Optional/Deprioritized) Adapter available if needed for complex routing.
+
 
 ### 2. API Generation & SDK
 - [ ] **OpenAPI Spec**: Auto-generate complete OpenAPI/Swagger documentation.

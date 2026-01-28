@@ -16,7 +16,7 @@ from genpulse.infra.database.manager import DBManager
 from genpulse.infra.mq import get_mq
 from genpulse.infra.rate_limiter import RateLimiter
 from genpulse.config import RATE_LIMITS
-from genpulse.types import TaskContext, TaskStatus, EngineError, RateLimitExceeded
+from genpulse.types import TaskContext, TaskStatus, EngineError, RateLimitExceeded, TransientError
 
 
 class TaskProcessor:
@@ -135,8 +135,8 @@ class TaskProcessor:
             return result
 
         except Exception as e:
-            # Allow rate limit exceptions to bubble up for retry
-            if isinstance(e, RateLimitExceeded):
+            # Allow rate limit and transient exceptions to bubble up for retry
+            if isinstance(e, (RateLimitExceeded, TransientError)):
                 raise e
 
             msg = str(e)

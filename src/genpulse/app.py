@@ -46,7 +46,4 @@ def create_api() -> FastAPI:
 
     return app
 
-def create_worker():
-    """Worker Application Factory"""
-    from genpulse.worker import Worker
-    return Worker()
+
