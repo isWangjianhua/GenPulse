@@ -1,66 +1,101 @@
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: genpulse-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: genpulse
-    ports:
-      - "5432:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    networks:
-      - genpulse-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+version: '3.8'
 
+services:
   redis:
     image: redis:7-alpine
-    container_name: genpulse-redis
     restart: always
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - genpulse-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    container_name: genpulse-minio
+  postgres:
+    image: postgres:15-alpine
     restart: always
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      POSTGRES_USER: genpulse
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_DB: genpulse_db
     ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console
+      - "5432:5432"
     volumes:
-      - minio_data:/data
-    networks:
-      - genpulse-net
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      test: ["CMD-SHELL", "pg_isready -U genpulse -d genpulse_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    restart: always
+    command: api --host 0.0.0.0
+    ports:
+      - "8000:8000"
+    environment:
+      # Dynaconf overrides (ENV_FOR_DYNACONF defaults to development if not set)
+      GENPULSE_ENV: "production"
+      
+      # Database
+      GENPULSE_DATABASE_URL: "postgresql+asyncpg://genpulse:secure_password@postgres:5432/genpulse_db"
+      
+      # Redis Config
+      GENPULSE_REDIS__URL: "redis://redis:6379/0"
+      
+      # MQ Config (Celery)
+      GENPULSE_MQ__TYPE: "celery"
+      GENPULSE_MQ__CELERY_BROKER_URL: "redis://redis:6379/0"
+      GENPULSE_MQ__CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      
+      # Storage (Local for now, mapped vol)
+      GENPULSE_STORAGE__TYPE: "local"
+      GENPULSE_STORAGE__LOCAL_PATH: "/app/storage"
+    volumes:
+      - genpulse_storage:/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: always
+    command: worker
+    # Share env vars with API (could use .env file to reduce duplication)
+    environment:
+      GENPULSE_ENV: "production"
+      GENPULSE_DATABASE_URL: "postgresql+asyncpg://genpulse:secure_password@postgres:5432/genpulse_db"
+      GENPULSE_REDIS__URL: "redis://redis:6379/0"
+      GENPULSE_MQ__TYPE: "celery"
+      GENPULSE_MQ__CELERY_BROKER_URL: "redis://redis:6379/0"
+      GENPULSE_MQ__CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+      GENPULSE_STORAGE__TYPE: "local"
+      GENPULSE_STORAGE__LOCAL_PATH: "/app/storage"
+    volumes:
+      - genpulse_storage:/app/storage
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  monitor:
+    build: .
+    restart: always
+    command: monitor --port 5555
+    ports:
+      - "5555:5555"
+    environment:
+      GENPULSE_MQ__CELERY_BROKER_URL: "redis://redis:6379/0"
+      GENPULSE_MQ__CELERY_RESULT_BACKEND: "redis://redis:6379/1"
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
-  pg_data:
-  redis_data:
-  minio_data:
-
-networks:
-  genpulse-net:
-    driver: bridge
+  postgres_data:
+  genpulse_storage:

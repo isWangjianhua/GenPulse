@@ -48,6 +48,25 @@ def worker():
         pass
 
 @cli.command()
+@click.option('--port', default=5555, help='Port to run Flower on')
+def monitor(port):
+    """Start Flower Dashboard for Real-time Monitoring"""
+    click.echo(f"Starting Celery Flower on http://localhost:{port}")
+    import subprocess
+    import sys
+    # celery -A genpulse.infra.mq.celery_app flower --port=5555
+    cmd = [
+        sys.executable, "-m", "celery", 
+        "-A", "genpulse.infra.mq.celery_app", 
+        "flower", 
+        f"--port={port}"
+    ]
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        pass
+
+@cli.command()
 def dev():
     """Start API and Worker in a combined process (recommended for Local Dev)"""
     click.echo("Starting GenPulse in Development Mode (API + Celery)...")
