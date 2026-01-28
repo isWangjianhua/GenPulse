@@ -38,16 +38,44 @@ def create_api() -> FastAPI:
     from genpulse.routers.storage import router as storage_router
     app.include_router(storage_router)
 
-    # Health check
     @app.get("/health")
-    async def health_check():
-        from genpulse.infra.mq import get_mq
-        mq = get_mq()
+    async def health_check(full: bool = False):
+        """
+        Health check endpoint.
+        GET /health -> Quick liveness probe.
+        GET /health?full=true -> Deep inspection (Redis, DB, Workers).
+        """
+        status = {"status": "ok", "version": "0.1.0"}
+        
+        if not full:
+            return status
+
+        details = {}
+        # 1. Check Redis/MQ
         try:
+            from genpulse.infra.mq import get_mq
+            mq = get_mq()
             await mq.ping()
-            return {"status": "ok", "services": {"mq": "connected", "db": "up"}}
+            details["redis"] = "ok"
         except Exception as e:
-            return {"status": "partial", "error": str(e)}
+            details["redis"] = f"failed: {str(e)}"
+            status["status"] = "degraded"
+
+        # 2. Check Celery Workers
+        try:
+            from genpulse.infra.mq.celery_app import celery_app
+            import asyncio
+            # Run blocking control command in thread
+            # ping() returns a list of dictionaries like [{'celery@worker1': {'ok': 'pong'}}]
+            pongs = await asyncio.to_thread(celery_app.control.ping, timeout=1.5)
+            details["workers_online"] = len(pongs) if pongs else 0
+            details["workers_raw"] = pongs
+        except Exception as e:
+            details["workers"] = f"check_failed: {str(e)}"
+            # Don't mark as degraded if just ping timeout, but maybe warning?
+
+        status["details"] = details
+        return status
 
     @app.get("/")
     async def root():

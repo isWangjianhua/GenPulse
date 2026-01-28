@@ -50,9 +50,25 @@ services:
       GENPULSE_MQ__CELERY_BROKER_URL: "redis://redis:6379/0"
       GENPULSE_MQ__CELERY_RESULT_BACKEND: "redis://redis:6379/1"
       
-      # Storage (Local for now, mapped vol)
+      # Storage (Local by default)
       GENPULSE_STORAGE__TYPE: "local"
       GENPULSE_STORAGE__LOCAL_PATH: "/app/storage"
+      
+      # Storage - S3/OSS Example (Uncomment to use)
+      # GENPULSE_STORAGE__TYPE: "s3"
+      # GENPULSE_STORAGE__S3_ENDPOINT_URL: "https://oss-cn-hangzhou.aliyuncs.com"
+      # GENPULSE_STORAGE__S3_ACCESS_KEY: "change_me"
+      # GENPULSE_STORAGE__S3_SECRET_KEY: "change_me"
+      # GENPULSE_STORAGE__S3_BUCKET_NAME: "genpulse"
+      # GENPULSE_STORAGE__S3_REGION_NAME: "us-east-1"
+      
+      # Providers
+      # Use host.docker.internal to access ComfyUI running on the host machine
+      GENPULSE_PROVIDERS__COMFY_URL: "http://host.docker.internal:8188"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      
     volumes:
       - genpulse_storage:/app/storage
     depends_on:
@@ -75,6 +91,17 @@ services:
       GENPULSE_MQ__CELERY_RESULT_BACKEND: "redis://redis:6379/1"
       GENPULSE_STORAGE__TYPE: "local"
       GENPULSE_STORAGE__LOCAL_PATH: "/app/storage"
+      # GENPULSE_STORAGE__TYPE: "s3"
+      # GENPULSE_STORAGE__S3_ENDPOINT_URL: "https://oss-cn-hangzhou.aliyuncs.com"
+      # GENPULSE_STORAGE__S3_ACCESS_KEY: "change_me"
+      # GENPULSE_STORAGE__S3_SECRET_KEY: "change_me"
+      # GENPULSE_STORAGE__S3_BUCKET_NAME: "genpulse"
+      
+      GENPULSE_PROVIDERS__COMFY_URL: "http://host.docker.internal:8188"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     volumes:
       - genpulse_storage:/app/storage
     depends_on:
