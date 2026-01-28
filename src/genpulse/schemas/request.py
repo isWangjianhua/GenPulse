@@ -1,10 +1,10 @@
 from typing import Literal, Union, Optional
 from typing_extensions import Annotated
 from pydantic import BaseModel, Field
-from .params import VolcParams, KlingParams, MinimaxParams, DashScopeParams, MockParams
+from .params import VolcParams, KlingParams, MinimaxParams, DashScopeParams, MockParams, ComfyParams
 
 class BaseRequest(BaseModel):
-    task_type: str = Field(..., description="Type of task to execute (e.g., 'text-to-video', 'image-to-video').")
+    task_type: str = Field(..., description="Type of task to execute (e.g., 'text-to-video', 'image-to-video', 'comfy-workflow').")
     priority: str = Field("normal", description="Execution priority: 'high', 'normal', 'low'.")
     callback_url: Optional[str] = Field(None, description="Webhook URL to call when task completes.")
 
@@ -26,6 +26,10 @@ class DashScopeRequest(BaseRequest):
     provider: Literal["dashscope"] = Field(description="Use DashScope (Alibaba) provider.")
     params: DashScopeParams
 
+class ComfyRequest(BaseRequest):
+    provider: Literal["comfyui"] = Field(description="Execute a raw ComfyUI workflow.")
+    params: ComfyParams
+
 class MockRequest(BaseRequest):
     provider: Literal["mock"] = Field(description="Use Mock provider for testing.")
     params: MockParams
@@ -38,6 +42,7 @@ TaskRequest = Annotated[
         KlingRequest, 
         MinimaxRequest, 
         DashScopeRequest, 
+        ComfyRequest,
         MockRequest
     ],
     Field(discriminator="provider")

@@ -33,3 +33,12 @@ class DashScopeParams(BaseParams):
 class MockParams(BaseParams):
     model: str = "mock-v1"
     duration: int = 5
+
+class ComfyParams(BaseParams):
+    """
+    Direct ComfyUI execution. 
+    Accepts a raw workflow JSON and a dictionary of inputs to inject.
+    """
+    workflow: Dict[str, Any] = Field(..., description="The ComfyUI API JSON structure.")
+    inputs: Dict[str, Any] = Field(default_factory=dict, description="Variables to inject. Keys must match 'INPUT_<Key>' titles in the workflow.")
+    server_address: Optional[str] = Field(None, description="Optional override for ComfyUI server URL.")
