@@ -18,7 +18,7 @@ settings = Dynaconf(
 settings.validators.register(
     Validator("DATABASE_URL", must_exist=True),
     Validator("REDIS.URL", must_exist=True, default="redis://localhost:6379/0"),
-    Validator("STORAGE.TYPE", is_in=["local", "s3"], default="local"),
+    Validator("STORAGE.TYPE", is_in=["local", "s3", "oss"], default="local"),
     Validator("LOGGING.LEVEL", default="INFO"),
     Validator("PROVIDERS.DEFAULT_IMAGE_PROVIDER", default="volcengine"),
 )
@@ -51,6 +51,13 @@ RATE_LIMITS = settings.get("ratelimits", {"default": 10.0})
 STORAGE_TYPE = settings.STORAGE.TYPE
 STORAGE_LOCAL_PATH = settings.STORAGE.LOCAL_PATH
 STORAGE_BASE_URL = settings.STORAGE.BASE_URL
+
+# S3 Storage Configuration
+S3_ENDPOINT_URL = settings.STORAGE.get("S3_ENDPOINT_URL")
+S3_ACCESS_KEY = settings.STORAGE.get("S3_ACCESS_KEY")
+S3_SECRET_KEY = settings.STORAGE.get("S3_SECRET_KEY")
+S3_BUCKET_NAME = settings.STORAGE.get("S3_BUCKET_NAME", "genpulse")
+S3_REGION_NAME = settings.STORAGE.get("S3_REGION_NAME", "us-east-1")
 
 COMFY_URL = settings.PROVIDERS.get("COMFY_URL", "http://127.0.0.1:8188")
 DEFAULT_IMAGE_PROVIDER = settings.PROVIDERS.DEFAULT_IMAGE_PROVIDER
