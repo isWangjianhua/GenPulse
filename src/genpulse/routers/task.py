@@ -11,7 +11,8 @@ from genpulse import config
 router = APIRouter(prefix="/task", tags=["tasks"])
 mq = get_mq()
 
-from genpulse.types import TaskRequest
+# from genpulse.types import TaskRequest (Deprecated)
+from genpulse.schemas.request import TaskRequest
 
 @router.post("")
 async def create_task(req: TaskRequest):
