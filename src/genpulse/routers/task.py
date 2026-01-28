@@ -70,14 +70,3 @@ async def get_task_status(task_id: str):
         "result": task.result,
         "task_type": task.task_type
     }
-
-@router.get("")
-async def list_tasks(limit: int = 50):
-    tasks = await DBManager.list_tasks(limit=limit)
-    return [{
-        "task_id": t.task_id,
-        "task_type": t.task_type,
-        "status": t.status,
-        "progress": t.progress,
-        "created_at": t.created_at
-    } for t in tasks]
