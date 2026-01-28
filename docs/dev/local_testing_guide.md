@@ -49,3 +49,16 @@ uv run genpulse dev
 ```
 
 You will see the logs from both the API Server and the Worker in your terminal.
+
+## 4. Testing RPC Mode (Microservice)
+
+To test the synchronous-like RPC capabilities (Direct MQ interaction without HTTP):
+
+1.  **Ensure Worker is Running**: The Celery worker must be active.
+2.  **Run the Example Client**:
+    ```bash
+    # This script bypasses the API and talks directly to Redis
+    python examples/direct_mq_client.py "Test prompt from RPC"
+    ```
+
+3.  **Result**: You should see the script push the task, wait (displaying a progress bar), and then print the final JSON result once the worker completes the job.

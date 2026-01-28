@@ -15,38 +15,36 @@ GenPulse is a high-concurrency generative AI backend system supporting multi-mod
 
 ```mermaid
 graph TD
-    subgraph "Access Layer"
-        WebClient[Web/Mobile Client] -->|1. HTTP POST /task| API[FastAPI Gateway]
-        WebClient -->|2. HTTP GET /status| API
-        ExternalApp[External App / Service] -->|3. Redis LPUSH| RedisQueue[Redis Task Queue]
+    subgraph "Client Layer"
+        ClientWeb[Web/Mobile App] 
+        ClientRPC[Internal Service / Script]
     end
 
-    subgraph "State Layer"
-        API -->|Insert Task| DB[(PostgreSQL)]
-        API -->|LPUSH| RedisQueue
+    subgraph "API Gateway Layer"
+        ClientWeb -->|1. HTTP POST /task| API[FastAPI Server]
+        ClientWeb -->|4. HTTP GET /status| API
+    end
+
+    subgraph "Messaging Middleware Layer"
+        RedisBroker[("Redis Broker\n(Celery Queue)")]
+        RedisPubSub[("Redis Pub/Sub\n(Updates Channel)")]
         
-        RedisPubSub[Redis Pub/Sub] -->|Event: Update| API
-        RedisPubSub -->|Event: Update| ExternalApp
+        API -->|2. Push Task| RedisBroker
+        ClientRPC -->|1. Subscribe & Push| RedisPubSub & RedisBroker
     end
 
-    subgraph "Execution Layer (Worker)"
-        RedisQueue -->|Pop Task| Worker[genpulse.worker]
-        Worker -->|Discovery| Registry[genpulse.handlers.registry]
-        Worker -->|Call| Handler[Feature Handlers]
+    subgraph "Compute Layer (Celery)"
+        RedisBroker -->|3. Dispatch| Worker[Celery Worker Cluster]
+        Worker -->|4. Publish Event| RedisPubSub
+    end
+
+    subgraph "State & Storage Layer"
+        Worker -->|5. Persist| DB[(PostgreSQL)]
+        Worker -->|Upload| OSS[S3 / MinIO]
         
-        Handler -->|Engine logic| Engines[genpulse.engines]
-        Handler -->|Remote Call| Clients[genpulse.clients]
-    end
-
-    subgraph "Resource Layer"
-        Engines -->|Comfy Adapters| ComfyInstance[ComfyUI Server]
-        Engines -->|Local Pipeline| GPUNode[GPU/Torch]
-        Clients -->|REST/WS| CloudProviders[VolcEngine/Tencent/Kling/...]
-    end
-
-    subgraph "Storage Layer"
-        Engines & Clients & Handler -->|Upload| OSS[Local/MinIO/S3]
-        OSS -->|URL| DB
+        RedisPubSub -.->|Notify| API
+        RedisPubSub -.->|Notify| ClientRPC
+        API -->|Query| DB
     end
 ```
 
@@ -141,7 +139,24 @@ The Worker contains no domain-specific logic; it merely acts as a bridge:
     3.  Add decorator `@registry.register("text-to-audio")`.
     4.  **Done**. API automatically supports `task_type="text-to-audio"`.
 
-### 3.5 Error Handling Strategy
+### 3.5 Dual-Mode Ingestion
+
+GenPulse supports two distinct interaction models to serve different user needs, both sharing the same underlying GPU infrastructure:
+
+**Mode A: HTTP + Polling (The "Waiter" Model)**
+- **Target**: Public Web Apps, Mobile Apps, Frontends.
+- **Flow**: User POSTs a task -> API returns ID immediately -> User Polls ID -> API checks Redis/DB.
+- **Pros**: Non-blocking for clients, robust against unstable networks, standard REST API.
+
+**Mode B: RPC Microservice (The "Direct" Model)**
+- **Target**: Internal Scripts, Microservices, CI/CD Pipelines.
+- **Flow**: Service calls `mq.send_task_wait()` -> SDK connects to Redis -> Pushes Task -> Subscribes to result channel -> Blocks until done.
+- **Pros**: Synchronous-like developer experience ("Call function, get result"), higher throughput for internal traffic, no polling latency.
+
+**Shared Infrastructure**:
+Both modes submit tasks to the **same Celery Queue**. The Worker cluster does not distinguish the source; it simply processes tasks and broadcasts events. This allows maximizing resource utilization across different traffic types.
+
+### 3.6 Error Handling Strategy
 
 1.  **Detection**: Clients/Engines raise exceptions (wrapped or standard).
 2.  **Capture**: The Worker wraps the entire execution block in a robust `try/except`.
@@ -156,8 +171,8 @@ The Worker contains no domain-specific logic; it merely acts as a bridge:
 | :--- | :--- | :--- |
 | **Language** | Python 3.10+ | AI ecosystem standard, excellent Type Hint support |
 | **Web Framework** | **FastAPI** | High-performance async, native OpenAPI support |
-| **Queue / Broker** | **Redis** / **RabbitMQ** | Ultra-low latency, supports Pub/Sub & Lists |
-| **MQ Abstraction** | **BaseMQ** | Abstract interface allowing easy switch between Redis/RabbitMQ/Celery |
+| **Queue / Broker** | **Celery** (over Redis) | Robust distributed task queue with ACK assurance |
+| **MQ Abstraction** | **CeleryMQ** | RPC-capable wrapper for Celery & Redis Pub/Sub |
 | **Database** | **PostgreSQL** | Robust relational storage, supports JSONB |
 | **ORM** | **SQLAlchemy(Async)** | Modern asynchronous ORM |
 | **HTTP Client** | **HTTPX** | Fully async HTTP client for external API calls |

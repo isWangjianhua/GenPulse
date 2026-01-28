@@ -8,15 +8,16 @@ This document outlines the strategic direction for GenPulse's development.
 - [x] Local Diffusers Engine (Mock Mode)
 - [x] **Multi-Provider Support**: 7+ Cloud Providers integrated (Volc, Tencent, Baidu, Kling, Minimax, DashScope).
 - [x] **Client Abstraction Layer**: `BaseClient` with unified polling and error handling.
-- [x] **MQ Abstraction Layer**: `BaseMQ` and `RedisMQ` implementation.
+- [x] **MQ Abstraction Layer**: `BaseMQ` and `RedisMQ`/`CeleryMQ` implementation.
+- [x] **Rate Limiting**: Distributed token bucket limiter per provider.
 - [x] **Standardized Schemas**: Pydantic models for all external API interactions.
 
 ## Phase 2: Orchestration & Robustness (Current Focus)
-### 1. Advanced Message Queueing
-- [ ] **RabbitMQ Support**: Implement `RabbitMQ` adapter for `BaseMQ`.
-- [ ] **Celery Integration**: Support Celery as an alternative worker runtime.
-- [ ] **Message Reliability**: Implement Dead Letter Queues (DLQ) and retry policies.
-- [ ] **Flow Control**: Rate limiting per provider to avoid API throttling.
+### 1. Advanced Message Queueing (Architecture Upgrade)
+- [x] **Celery Integration**: Adopted as primary worker runtime (Redis Broker).
+- [x] **Dual-Mode Support**: Implemented HTTP Polling + Direct RPC Microservice pattern.
+- [ ] **Message Reliability**: DLQ and Retry policies (Native in Celery, configuration tuning needed).
+- [ ] **RabbitMQ Support**: (Optional/Deprioritized) Adapter available if needed for complex routing.
 
 ### 2. API Generation & SDK
 - [ ] **OpenAPI Spec**: Auto-generate complete OpenAPI/Swagger documentation.

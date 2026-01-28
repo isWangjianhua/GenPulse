@@ -11,8 +11,9 @@ GenPulse is a robust backend system designed to orchestrate complex Generative A
 ## 🚀 Core Features
 
 *   **Multi-Model Integrity**: Unified interface for **Text-to-Image**, **Text-to-Video**, and **Image-to-Video** across multiple providers.
+*   **Dual-Mode Architecture**: Seamlessly supports both **Public HTTP API** (Polling) for web apps and **Direct RPC** (Microservice Pattern) for internal pipelines.
 *   **Broad Provider Support**: Out-of-the-box support for **VolcEngine (ByteDance)**, **Tencent Cloud**, **Baidu Cloud**, **Kling AI**, **Minimax**, **DashScope (Alibaba)**, and **ComfyUI**.
-*   **Task Orchestration**: Efficiently manages long-running AI generation tasks using asynchronous queues (**Redis MQ** / **RabbitMQ**).
+*   **Reliable Orchestration**: Powered by **Celery** + **Redis** for production-grade task scheduling, automated retries, and "At-Least-Once" delivery guarantees.
 *   **Reliable State Tracking**: Implements a "Double-Sync" mechanism—real-time updates via MQ Pub/Sub for speed, and PostgreSQL persistence for auditability.
 *   **Unified Storage Layer**: Abstracted asset management supporting Local Storage and S3/OSS.
 *   **Scalable Architecture**: Decoupled ingestion, dispatching, and execution layers built with **FastAPI**, **SQLAlchemy (Async)**, and **Redis**.
@@ -75,7 +76,25 @@ Poll or listen for updates to get the generated asset URLs.
     "video_url": "https://api.genpulse.com/assets/2026/01/24/result.mp4",
     "cover_url": "https://api.genpulse.com/assets/2026/01/24/cover.jpg"
   }
-}
+```
+
+### Internal Microservice (RPC Mode)
+For internal services that need a synchronous-like experience:
+
+```python
+from genpulse.infra.mq import get_mq
+
+# 1. Connect
+mq = get_mq()
+
+# 2. Call & Wait (The system handles subscription and serialization)
+result = await mq.send_task_wait({
+    "task_id": "unique-id-123",
+    "task_type": "text-to-video",
+    "params": {"prompt": "cyberpunk city"}
+}, timeout=60)
+
+print(result) # {'status': 'completed', 'result': {...}}
 ```
 
 ---
@@ -113,8 +132,14 @@ Poll or listen for updates to get the generated asset URLs.
 
 5.  **Run**:
     ```bash
-    # Start API and Worker in one go (Dev mode)
-    uv run genpulse dev
+    # 1. Start Celery Worker (The Compute Engine)
+    # Windows
+    celery -A genpulse.infra.mq.celery_app worker --loglevel=info -P solo
+    # Linux/Mac
+    celery -A genpulse.infra.mq.celery_app worker --loglevel=info
+
+    # 2. Start API Server (The Gateway)
+    uvicorn genpulse.app:create_api --factory --reload
     ```
 
 ---
