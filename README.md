@@ -1,150 +1,80 @@
-# GenPulse
+# GenPulse: High-Performance AI Orchestration Engine
 
-> **High-Concurrency Generative AI Backend System**
->
-> 🇨🇳 [中文文档](./README_CN.md)
+**GenPulse** is a production-grade backend for orchestrating Generative AI tasks. It bridges the gap between raw AI APIs (VolcEngine, Kling, Minimax) plus local execution engines (ComfyUI) and your business applications, providing a unified, reliable, and scalable interface.
 
-GenPulse is a robust backend system designed to orchestrate complex Generative AI workflows (Image, Video, Audio) at scale. It provides reliable task scheduling, real-time status tracking, and unified asset management for AI applications, supporting **7+ Major Cloud Providers**.
+## 🚀 Key Features
 
----
+*   **Multi-Provider Support**: Seamlessly switch between **VolcEngine (Doubao)**, **Kling AI**, **Minimax (Hailuo)**, and more via a single polymorphic API.
+*   **Deep ComfyUI Integration**: 
+    *   Execute raw ComfyUI workflows via API without UI interactions.
+    *   **Auto-Parsing**: Automatically detects dynamic inputs (nodes named `INPUT_`).
+    *   **Streaming**: Real-time progress updates via WebSocket.
+    *   **Binary Capture**: Supports `SaveImageWebsocket` for faster, diskv-free image retrieval.
+*   **Unified Storage Layer**:
+    *   Automatically uploads generated assets to **AWS S3**, **Aliyun OSS**, or **MinIO**.
+    *   Generates secure **Presigned URLs** for private buckets.
+    *   Built-in `POST /storage/upload` API for handling large inputs (Image-to-Video).
+    *   Automatic Base64 decoding and uploading for inline inputs.
+*   **Robust Architecture**: 
+    *   Built on **FastAPI + Celery + Redis + PostgreSQL**.
+    *   Distributed Rate Limiting & Flow Control.
+    *   Exponential Backoff Retries & Dead Letter Queues (DLQ) for reliability.
+*   **DevOps Ready**:
+    *   **Docker Compose** one-click deployment.
+    *   **Admin Dashboard** (SQLAdmin) for task management.
+    *   **Flower** integration for real-time worker monitoring.
 
-## 🚀 Core Features
+## 🛠 Quick Start
 
-*   **Multi-Model Integrity**: Unified interface for **Text-to-Image**, **Text-to-Video**, and **Image-to-Video** across multiple providers.
-*   **Dual-Mode Architecture**: Seamlessly supports both **Public HTTP API** (Polling) for web apps and **Direct RPC** (Microservice Pattern) for internal pipelines.
-*   **Broad Provider Support**: Out-of-the-box support for **VolcEngine (ByteDance)**, **Tencent Cloud**, **Baidu Cloud**, **Kling AI**, **Minimax**, **DashScope (Alibaba)**, and **ComfyUI**.
-*   **Reliable Orchestration**: Powered by **Celery** + **Redis** for production-grade task scheduling, automated retries, and "At-Least-Once" delivery guarantees.
-*   **Reliable State Tracking**: Implements a "Double-Sync" mechanism—real-time updates via MQ Pub/Sub for speed, and PostgreSQL persistence for auditability.
-*   **Unified Storage Layer**: Abstracted asset management supporting Local Storage and S3/OSS.
-*   **Scalable Architecture**: Decoupled ingestion, dispatching, and execution layers built with **FastAPI**, **SQLAlchemy (Async)**, and **Redis**.
+### 1. Using Docker (Recommended)
 
----
+```bash
+# 1. Clone
+git clone https://github.com/isWangjianhua/GenPulse.git
+cd GenPulse
 
-## 🧩 Supported Providers
+# 2. Configure (Optional)
+# Edit docker-compose.yml to set S3 credentials or ComfyUI URL
+# export GENPULSE_PROVIDERS__COMFY_URL="http://your-comfyui-host:8188"
 
-| Provider | ID | Capabilities |
-| :--- | :--- | :--- |
-| **VolcEngine** | `volcengine` | Image Gen, Video Gen |
-| **Tencent Cloud** | `tencent` | Image Gen (Hunyuan), Video Gen |
-| **Baidu Cloud** | `baidu` | Text-to-Video, Image-to-Video |
-| **Kling AI** | `kling` | High-Quality Video Generation |
-| **Minimax** | `minimax` | Video Generation, Speech |
-| **DashScope** | `dashscope` | Image Gen (Wanx), Video Gen |
-| **ComfyUI** | `comfyui` | Custom Node Workflows |
-| **Diffusers** | `diffusers` | Local Inference |
+# 3. Launch Stack
+docker-compose up -d
 
----
-
-## 🛠️ Usage
-
-### Submitting a Video Task
-Submit a `text-to-video` task with your preferred provider.
-
-```http
-POST /task
-Content-Type: application/json
-
-{
-  "task_type": "text-to-video",
-  "params": {
-    "provider": "kling",
-    "prompt": "a cinematic drone shot of a futuristic city at sunset",
-    "model_name": "kling-v1"
-  }
-}
+# 4. Access Services
+# - API Documentation: http://localhost:8000/docs
+# - Admin Dashboard:   http://localhost:8000/admin
+# - Flower Monitor:    http://localhost:5555
 ```
 
-### Response
-Pass back a tracking ID immediately.
+### 2. Local Development
 
-```json
-{
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "pending",
-  "message": "Task queued"
-}
+```bash
+# Install dependencies
+uv sync
+
+# Configure Environment
+export GENPULSE_ENV=dev
+export GENPULSE_REDIS__URL=redis://localhost:6379/0
+
+# Run Dev Server (Auto-starts API + Worker + Flower)
+uv run genpulse dev
 ```
 
-### Retrieving Results
-Poll or listen for updates to get the generated asset URLs.
+## 📚 Documentation
 
-```json
-{
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "completed",
-  "result": {
-    "video_url": "https://api.genpulse.com/assets/2026/01/24/result.mp4",
-    "cover_url": "https://api.genpulse.com/assets/2026/01/24/cover.jpg"
-  }
-```
+See `docs/` for detailed guides:
+*   [API Reference](docs/api.md)
+*   [Deployment Guide](docs/deploy.md)
+*   [Java Integration](docs/dev/java_integration.md)
 
-### Internal Microservice (RPC Mode)
-For internal services that need a synchronous-like experience:
+## 🧩 Architecture
 
-```python
-from genpulse.infra.mq import get_mq
+GenPulse uses a decoupled architecture:
+1.  **API Gateway (FastAPI)**: Validates requests and pushes to Redis/Celery.
+2.  **Task Workers (Celery)**: Async consumers that execute long-running AI tasks.
+3.  **Unified Storage**: Abstracts local fs vs S3/OSS.
+4.  **Database (Postgres)**: Durable state storage for tasks.
 
-# 1. Connect
-mq = get_mq()
+## License
 
-# 2. Call & Wait (The system handles subscription and serialization)
-result = await mq.send_task_wait({
-    "task_id": "unique-id-123",
-    "task_type": "text-to-video",
-    "params": {"prompt": "cyberpunk city"}
-}, timeout=60)
-
-print(result) # {'status': 'completed', 'result': {...}}
-```
-
----
-
-## 📦 Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/your-org/genpulse.git
-    cd genpulse
-    ```
-
-2.  **Start Infrastructure** (Requires Docker):
-    ```bash
-    docker-compose up -d
-    ```
-
-3.  **Install dependencies**:
-    ```bash
-    uv sync
-    ```
-
-4.  **Configure Environment**:
-    Create a `.env` file from `.env.example`:
-    ```ini
-    DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/genpulse
-    REDIS_URL=redis://localhost:6379/0
-    
-    # Provider Keys (Add as needed)
-    VOLC_ACCESS_KEY=...
-    VOLC_SECRET_KEY=...
-    KLING_AK=...
-    KLING_SK=...
-    ```
-
-5.  **Run**:
-    ```bash
-    # 1. Start Celery Worker (The Compute Engine)
-    # Windows
-    celery -A genpulse.infra.mq.celery_app worker --loglevel=info -P solo
-    # Linux/Mac
-    celery -A genpulse.infra.mq.celery_app worker --loglevel=info
-
-    # 2. Start API Server (The Gateway)
-    uvicorn genpulse.app:create_api --factory --reload
-    ```
-
----
-
-## 👨‍💻 Development
-
-We follow a **Dev -> Test -> Main** branching strategy for stability.
-Please refer to [AGENTS.md](./AGENTS.md) for detailed contribution guidelines and coding standards.
+MIT
