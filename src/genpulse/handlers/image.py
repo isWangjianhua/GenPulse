@@ -7,21 +7,30 @@ from genpulse import config
 from genpulse.types import TaskContext
 
 # --- Helpers / Lazy Imports ---
-# We keep these separate to avoid dependency hell if a user doesn't use a specific provider
 
 def get_volc_client():
-    try:
-        from genpulse.clients.volcengine.client import VolcEngineClient
-        return VolcEngineClient()
-    except ImportError:
-        raise ImportError("VolcEngine SDK not installed.")
+    from genpulse.clients.volcengine.client import create_volcengine_client
+    return create_volcengine_client()
 
 def get_tencent_client():
-    try:
-        from genpulse.clients.tencent.client import create_tencent_vod_client
-        return create_tencent_vod_client()
-    except ImportError:
-        raise ImportError("Tencent Cloud SDK not installed.")
+    from genpulse.clients.tencent.client import create_tencent_vod_client
+    return create_tencent_vod_client()
+
+def get_baidu_client():
+    from genpulse.clients.baidu.client import create_baidu_vod_client
+    return create_baidu_vod_client()
+
+def get_minimax_client():
+    from genpulse.clients.minimax.client import create_minimax_client
+    return create_minimax_client()
+
+def get_dashscope_client():
+    from genpulse.clients.dashscope.client import create_dashscope_client
+    return create_dashscope_client()
+
+def get_kling_client():
+    from genpulse.clients.kling.client import create_kling_client
+    return create_kling_client()
 
 
 # --- Text to Image ---
@@ -30,7 +39,7 @@ def get_tencent_client():
 class TextToImageHandler(BaseHandler):
     """
     Unified Handler for Text-to-Image Generation.
-    Supports: VolcEngine, ComfyUI, Diffusers.
+    Supports: VolcEngine, Tencent, Baidu, DashScope, MiniMax, Kling, ComfyUI, Diffusers.
     """
     
     def validate_params(self, params: Dict[str, Any]) -> bool:
@@ -45,72 +54,107 @@ class TextToImageHandler(BaseHandler):
         
         logger.info(f"Executing Text-to-Image via {provider}")
         
-        # --- VolcEngine ---
-        if provider == "volcengine":
-            client = get_volc_client()
-            # Volcengine params: model, prompt
-            # We explicitly map or passthrough
-            try:
+        try:
+            # --- VolcEngine ---
+            if provider == "volcengine":
+                client = get_volc_client()
                 response = await client.generate_image(params)
                 if response.error:
                     raise Exception(response.error.message)
-                return {"status": "succeeded", "data": response.model_dump(), "provider": "volcengine"}
-            except Exception as e:
-                logger.error(f"VolcEngine T2I failed: {e}")
-                raise e
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
 
-        # --- ComfyUI ---
-        elif provider == "comfyui":
-            # We can import the existing logic or helper
-            # To keep it "flat", we treat the old handler as a library
-            from genpulse.engines.comfy_engine import ComfyEngine
-            # We use the handler logic but manually, or we can instantiate it
-            # note: ComfyEngine usually expects 'workflow' in params
-            handler = ComfyEngine()
-            return await handler.execute(task, context)
-
-        # --- Diffusers (Local) ---
-        elif provider == "diffusers":
-            from genpulse.engines.diffusers_engine import DiffusersEngine
-            handler = DiffusersEngine()
-            return await handler.execute(task, context)
-
-        # --- Tencent VOD (Cloud) ---
-        elif provider == "tencent":
-            from genpulse.clients.tencent.schemas import TencentImageParams
-            client = get_tencent_client()
-            
-            # Map standard params to Tencent specifics
-            # Tencent expects: ModelName, ModelVersion, Prompt, NegativePrompt, OutputConfig
-            tencent_params = TencentImageParams(
-                ModelName=params.get("model_name", "Hunyuan"),
-                ModelVersion=params.get("model_version", "3.0"),
-                Prompt=params.get("prompt"),
-                NegativePrompt=params.get("negative_prompt"),
-                OutputConfig={
-                    "AspectRatio": params.get("aspect_ratio", "16:9"),
-                    "Resolution": params.get("resolution", "1024x576")
-                }
-            )
-            
-            try:
+            # --- Tencent ---
+            elif provider == "tencent":
+                from genpulse.clients.tencent.schemas import TencentImageParams
+                client = get_tencent_client()
+                tencent_params = TencentImageParams(
+                    ModelName=params.get("model_name", "Hunyuan"),
+                    ModelVersion=params.get("model_version", "3.0"),
+                    Prompt=params.get("prompt"),
+                    NegativePrompt=params.get("negative_prompt"),
+                    OutputConfig={
+                        "AspectRatio": params.get("aspect_ratio", "16:9"),
+                        "Resolution": params.get("resolution", "1024x576")
+                    }
+                )
                 response = await client.generate_image(tencent_params, wait=True)
                 if not response.is_succeeded:
-                    error_msg = response.AigcImageTask.Message if response.AigcImageTask else "Unknown Tencent error"
-                    raise Exception(f"Tencent T2I failed: {error_msg}")
-                    
-                return {
-                    "status": "succeeded",
-                    "result_url": response.result_url,
-                    "data": response.model_dump(),
-                    "provider": "tencent"
-                }
-            except Exception as e:
-                logger.error(f"Tencent T2I failed: {e}")
-                raise e
+                    raise Exception(f"Tencent T2I failed: {response.message}")
+                return {"status": "succeeded", "result_url": response.result_url, "data": response.model_dump(), "provider": provider}
 
-        else:
-            raise ValueError(f"Unknown provider '{provider}' for text-to-image")
+            # --- Baidu ---
+            elif provider == "baidu":
+                # Uses generic params adapter
+                client = get_baidu_client()
+                # Baidu expects: model, taskInput={text}
+                # Adapter:
+                bp = {
+                    "model": params.get("model", "Stable-Diffusion-XL"),
+                    "taskInput": {"text": params.get("prompt")}
+                }
+                # Add optional params
+                if "negative_prompt" in params:
+                    bp["taskInput"]["negative_text"] = params["negative_prompt"]
+                if "resolution" in params:
+                    bp["taskInput"]["resolution"] = params["resolution"]
+                if "style" in params:
+                    bp["taskInput"]["style"] = params["style"]
+
+                response = await client.text_to_image(bp, wait=True)
+                if not response.is_succeeded:
+                    raise Exception(f"Baidu T2I failed: {response.result or response.status}")
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+
+            # --- DashScope ---
+            elif provider == "dashscope":
+                client = get_dashscope_client()
+                # Adapter:
+                dp = {
+                    "model": params.get("model", "wanx-v1"),
+                    "prompt": params.get("prompt")
+                }
+                if "n" in params: dp["n"] = params["n"]
+                if "size" in params: dp["size"] = params["size"]
+                if "style" in params: dp["style"] = params["style"]
+
+                response = await client.generate_image(dp, wait=True)
+                if not response.is_succeeded:
+                    raise Exception(f"DashScope T2I failed: {response.message}")
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+
+            # --- MiniMax ---
+            elif provider == "minimax":
+                client = get_minimax_client()
+                # Adapter
+                mp = {
+                    "model": params.get("model", "image-01"),
+                    "prompt": params.get("prompt")
+                }
+                if "aspect_ratio" in params: mp["aspect_ratio"] = params["aspect_ratio"]
+
+                response = await client.generate_image(mp)
+                if not response.is_succeeded:
+                    raise Exception(f"MiniMax T2I failed")
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+
+            # --- ComfyUI ---
+            elif provider == "comfyui":
+                from genpulse.engines.comfy_engine import ComfyEngine
+                handler = ComfyEngine()
+                return await handler.execute(task, context)
+
+            # --- Diffusers ---
+            elif provider == "diffusers":
+                from genpulse.engines.diffusers_engine import DiffusersEngine
+                handler = DiffusersEngine()
+                return await handler.execute(task, context)
+
+            else:
+                raise ValueError(f"Unknown provider '{provider}' for text-to-image")
+
+        except Exception as e:
+            logger.error(f"{provider} T2I failed: {e}")
+            raise e
 
 
 # --- Image to Image ---
@@ -129,20 +173,56 @@ class ImageToImageHandler(BaseHandler):
         
         logger.info(f"Executing Image-to-Image via {provider}")
 
-        if provider == "volcengine":
-            # Note: VolcEngine I2I uses generate_image but with 'image' param
-            client = get_volc_client()
-            try:
+        try:
+            # --- VolcEngine ---
+            if provider == "volcengine":
+                client = get_volc_client()
                 response = await client.generate_image(params)
                 if response.error:
                      raise Exception(response.error.message)
-                return {"status": "succeeded", "data": response.model_dump(), "provider": "volcengine"}
-            except Exception as e:
-                logger.error(f"VolcEngine I2I failed: {e}")
-                raise e
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+
+            # --- Baidu ---
+            elif provider == "baidu":
+                client = get_baidu_client()
+                bp = {
+                    "model": params.get("model", "Stable-Diffusion-XL"),
+                    "taskInput": {
+                        "text": params.get("prompt", ""),
+                        "image": params.get("image_url") or params.get("image")
+                    }
+                }
+                response = await client.image_to_image(bp, wait=True)
+                if not response.is_succeeded:
+                    raise Exception(f"Baidu I2I failed")
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+
+            # --- DashScope ---
+            elif provider == "dashscope":
+                # DashScope supports Image Repaint/Edit via different endpoints usually
+                # Here we map basic I2I if available or Image Edit
+                client = get_dashscope_client()
+                # Assuming using qwen-vl or specialized model for edit
+                # For standard I2I (Generation), DashScope uses "sketch_to_image_synthesis" or similar
+                # Let's map to 'edit_image' if model suggests it, or try generate
+                if "edit" in params.get("model", ""):
+                     ep = {
+                         "model": params.get("model"),
+                         "input": {"image_path": params.get("image_url")},
+                         "parameters": {"prompt": params.get("prompt")}
+                     }
+                     response = await client.edit_image(ep)
+                else:
+                    # Fallback or generic I2I implementation if available
+                    # For now DashScope Python SDK mainly exposes T2I and Repaint
+                     raise NotImplementedError("DashScope standard I2I not fully mapped yet")
                 
-        # Add other providers (ComfyUI I2I) here
-        
-        else:
-            raise ValueError(f"Provider '{provider}' not supported for image-to-image yet")
+                return {"status": "succeeded", "data": response.model_dump(), "provider": provider}
+            
+            else:
+                raise ValueError(f"Provider '{provider}' not supported for image-to-image yet")
+
+        except Exception as e:
+            logger.error(f"{provider} I2I failed: {e}")
+            raise e
 
