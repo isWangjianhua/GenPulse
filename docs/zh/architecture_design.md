@@ -88,24 +88,24 @@ src/genpulse/
 ```mermaid
 graph TD
     subgraph "核心系统 (Core System)"
-        API[API Gateway]
-        Worker[Celery Worker]
-        Registry[Handler 注册表]
+        API["API Gateway"]
+        Worker["Celery Worker"]
+        Registry["Handler 注册表"]
     end
 
     subgraph "业务逻辑 (Handlers)"
-        ImgH[ImageHandler]
-        VidH[VideoHandler]
+        ImgH["ImageHandler"]
+        VidH["VideoHandler"]
     end
     
     subgraph "执行引擎 (Engines)"
-        ComfyE[ComfyEngine]
-        DiffE[DiffusersEngine]
+        ComfyE["ComfyEngine"]
+        DiffE["DiffusersEngine"]
     end
     
     subgraph "资源 (Resources)"
-        Tpl[模板库 (JSON)]
-        Schemas[Pydantic 模型]
+        Tpl["模板库 (JSON)"]
+        Schemas["Pydantic 模型"]
     end
 
     Worker -->|1. 查找| Registry

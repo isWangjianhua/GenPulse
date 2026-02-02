@@ -88,24 +88,24 @@ src/genpulse/
 ```mermaid
 graph TD
     subgraph "Core System"
-        API[API Gateway]
-        Worker[Celery Worker]
-        Registry[Handler Registry]
+        API["API Gateway"]
+        Worker["Celery Worker"]
+        Registry["Handler Registry"]
     end
 
     subgraph "Business Logic (Handlers)"
-        ImgH[ImageHandler]
-        VidH[VideoHandler]
+        ImgH["ImageHandler"]
+        VidH["VideoHandler"]
     end
     
     subgraph "Execution Engines"
-        ComfyE[ComfyEngine]
-        DiffE[DiffusersEngine]
+        ComfyE["ComfyEngine"]
+        DiffE["DiffusersEngine"]
     end
     
     subgraph "Resources"
-        Tpl[Templates (JSON)]
-        Schemas[Pydantic Models]
+        Tpl["Templates (JSON)"]
+        Schemas["Pydantic Models"]
     end
 
     Worker -->|1. Lookup| Registry
