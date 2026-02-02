@@ -5,7 +5,7 @@ import json
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
-from genpulse.handlers.base import BaseHandler
+from genpulse.engines.base import BaseEngine
 from genpulse.handlers.registry import registry
 from genpulse.types import TaskContext, EngineError
 from genpulse import config
@@ -15,16 +15,16 @@ from genpulse.clients.comfyui.client import ComfyClient, ComfyClientError
 # Import our new template helpers
 from genpulse.utils.comfy import parse_workflow_template, apply_params, load_template
 
-@registry.register("comfy-workflow")
-class ComfyUIHandler(BaseHandler):
+@registry.register("comfyui") # Standardizing key
+class ComfyEngine(BaseEngine):
     """
-    Refactored ComfyUI Handler.
-    Leverages ComfyClient for communication and Template system for workflow generation.
+    ComfyUI Engine.
+    Executes workflows on a ComfyUI server.
     """
     
     def validate_params(self, params: Dict[str, Any]) -> bool:
         if "workflow" not in params and "template_name" not in params:
-            logger.error("ComfyUIHandler: Neither 'workflow' nor 'template_name' provided.")
+            logger.error("ComfyEngine: Neither 'workflow' nor 'template_name' provided.")
             return False
         return True
 

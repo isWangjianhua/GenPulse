@@ -139,12 +139,12 @@ class TextToImageHandler(BaseHandler):
 
             # --- ComfyUI ---
             elif provider == "comfyui":
-                from genpulse.handlers.comfy_handler import ComfyUIHandler
+                from genpulse.engines.comfy_engine import ComfyEngine
                 
                 # Map generic T2I params to Comfy Template
                 # We default to 'sdxl_t2i' template. 
-                # If user wants a specific template, they should use 'comfy-workflow' handler directly,
-                # or we could support a 'model' param that maps to a template name.
+                # If user wants a specific template, they should use 'comfyui' engine directly in task type?
+                # Actually, ImageHandler acts as facade.
                 
                 template = params.get("model", "sdxl_t2i")
                 if template == "sdxl": template = "sdxl_t2i" # alias
@@ -169,8 +169,8 @@ class TextToImageHandler(BaseHandler):
                     }
                 }
                 
-                logger.info(f"Delegating to ComfyUIHandler with template: {template}")
-                handler = ComfyUIHandler()
+                logger.info(f"Delegating to ComfyEngine with template: {template}")
+                handler = ComfyEngine()
                 return await handler.execute(new_task, context)
 
             # --- Diffusers ---
