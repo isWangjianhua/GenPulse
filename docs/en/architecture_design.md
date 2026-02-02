@@ -59,24 +59,28 @@ To enable "extension without modification," the system uses a **Registry Pattern
 src/genpulse/
   ├── app.py           # FastAPI Application Factory & Gateway
   ├── worker.py        # Generic Task Worker (Consumer)
-  ├── handlers/        # Business Domain Logic (The "What")
+  ├── handlers/        # Business Domain Dispatchers (The "What")
   │   ├── base.py      # BaseHandler Interface
   │   ├── registry.py  # Task-to-Handler Mapping
-  │   ├── image.py     # Image Gen Logic
-  │   └── video.py     # Video Gen Logic
+  │   ├── image.py     # Image Generation Dispatcher (T2I, I2I)
+  │   └── video.py     # Video Generation Dispatcher (T2V, I2V)
   ├── clients/         # External API Wrappers (The "Remote")
-  │   ├── base.py      # BaseClient (Polling/HTTP utils)
+  │   ├── base.py      # BaseClient
+  │   ├── comfyui/     # ComfyUI HTTP/WS Client
   │   ├── volcengine/  # ByteDance VolcEngine Client
   │   ├── tencent/     # Tencent Cloud Client
   │   ├── baidu/       # Baidu Cloud Client
   │   ├── kling/       # Kling AI Client
-  │   └── ...          # More providers
-  ├── engines/         # Local/Technical Implementations (The "How")
-  │   ├── comfy_engine.py    # ComfyUI Integration
-  │   └── diffusers_engine.py # Local Diffusers Integration
+  │   └── ...          
+  ├── engines/         # Execution Engines (The "How")
+  │   ├── base.py      # BaseEngine Interface
+  │   ├── comfy_engine.py    # ComfyUI Workflow Executor
+  │   └── diffusers_engine.py # Local Diffusers Executor
+  ├── templates/       # Workflow Templates
+  │   └── comfy/       # JSON Templates for ComfyUI
   ├── infra/           # Shared Infrastructure
   │   ├── database/    # PostgreSQL / SQLAlchemy
-  │   └── mq/          # Message Queue Abstraction (RedisMQ)
+  │   └── mq/          # Message Queue Abstraction (Celery)
 ```
 
 **BaseHandler Interface:**

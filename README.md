@@ -1,80 +1,116 @@
-# GenPulse: High-Performance AI Orchestration Engine
+# GenPulse
 
-**GenPulse** is a production-grade backend for orchestrating Generative AI tasks. It bridges the gap between raw AI APIs (VolcEngine, Kling, Minimax) plus local execution engines (ComfyUI) and your business applications, providing a unified, reliable, and scalable interface.
+<div align="center">
 
-## 🚀 Key Features
+**Enterprise-Grade AI Generation Orchestration Engine**
 
-*   **Multi-Provider Support**: Seamlessly switch between **VolcEngine (Doubao)**, **Kling AI**, **Minimax (Hailuo)**, and more via a single polymorphic API.
-*   **Deep ComfyUI Integration**: 
-    *   Execute raw ComfyUI workflows via API without UI interactions.
-    *   **Auto-Parsing**: Automatically detects dynamic inputs (nodes named `INPUT_`).
-    *   **Streaming**: Real-time progress updates via WebSocket.
-    *   **Binary Capture**: Supports `SaveImageWebsocket` for faster, diskv-free image retrieval.
-*   **Unified Storage Layer**:
-    *   Automatically uploads generated assets to **AWS S3**, **Aliyun OSS**, or **MinIO**.
-    *   Generates secure **Presigned URLs** for private buckets.
-    *   Built-in `POST /storage/upload` API for handling large inputs (Image-to-Video).
-    *   Automatic Base64 decoding and uploading for inline inputs.
-*   **Robust Architecture**: 
-    *   Built on **FastAPI + Celery + Redis + PostgreSQL**.
-    *   Distributed Rate Limiting & Flow Control.
-    *   Exponential Backoff Retries & Dead Letter Queues (DLQ) for reliability.
-*   **DevOps Ready**:
-    *   **Docker Compose** one-click deployment.
-    *   **Admin Dashboard** (SQLAdmin) for task management.
-    *   **Flower** integration for real-time worker monitoring.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109%2B-009688.svg)](https://fastapi.tiangolo.com)
+[![Celery](https://img.shields.io/badge/Celery-5.3%2B-green.svg)](https://docs.celeryq.dev/)
 
-## 🛠 Quick Start
+[English](README.md) | [中文](README_ZH.md)
+
+</div>
+
+---
+
+**GenPulse** is a comprehensive backend infrastructure designed to bridge the gap between complex Generative AI capabilities and business applications. It provides a unified, coherent interface to orchestrate tasks across multiple cloud providers (SaaS) and local execution engines (PaaS/IaaS).
+
+## ✨ Key Features
+
+### 🔌 Multi-Provider Support
+Unified abstraction layer for various top-tier AI providers. Switch providers instantly without changing your client code.
+*   **Video Generation**: VolcEngine (PixelDance), Kling AI, MiniMax (Hailuo), Baidu (UniVid), Tencent (Hunyuan), DashScope (Wanx).
+*   **Image Generation**: VolcEngine, DashScope (Wanx), Baidu (SDXL), Tencent, MiniMax.
+
+### 🎨 Deep ComfyUI Integration
+Treats ComfyUI as a robust execution backend engine.
+*   **Template System**: Call complex workflows using simple JSON templates (`src/genpulse/templates`).
+*   **ComfyEngine**: Dedicated engine handles WebSocket communication, queue management, and parameter injection.
+*   **Performance**: Supports `SaveImageWebsocket` for zero-latency image retrieval (no disk I/O).
+
+### ⚡ Unified Architecture
+*   **Handlers & Engines**: Clear separation between Business Dispatchers (Handlers) and Execution Logic (Engines).
+*   **RabbitMQ / Redis MQ**: High-concurrency task queue based on Celery.
+*   **Unified Storage**: Auto-upload generated assets to S3/OSS/MinIO and return standardized URLs.
+
+### 🛠 Developer Experience
+*   **FastAPI**: Modern, async, typed Python framework.
+*   **DevOps Ready**: One-click `docker-compose` deployment with PostgreSQL, Redis, and Flower.
+*   **Admin Dashboard**: Built-in SQLAdmin for visual task management.
+
+## 🚀 Quick Start
 
 ### 1. Using Docker (Recommended)
 
 ```bash
-# 1. Clone
+# Clone repository
 git clone https://github.com/isWangjianhua/GenPulse.git
 cd GenPulse
 
-# 2. Configure (Optional)
-# Edit docker-compose.yml to set S3 credentials or ComfyUI URL
-# export GENPULSE_PROVIDERS__COMFY_URL="http://your-comfyui-host:8188"
+# Configure Environment
+cp .env.example .env
+# Edit .env to set your API KEYS (VOLC_ACCESS_KEY, KLING_AK, etc.)
 
-# 3. Launch Stack
+# Launch Stack
 docker-compose up -d
 
-# 4. Access Services
-# - API Documentation: http://localhost:8000/docs
-# - Admin Dashboard:   http://localhost:8000/admin
-# - Flower Monitor:    http://localhost:5555
+# Access Services
+# - API Docs:      http://localhost:8000/docs
+# - Admin Panel:   http://localhost:8000/admin
+# - Worker Monitor: http://localhost:5555
 ```
 
 ### 2. Local Development
 
 ```bash
-# Install dependencies
+# Install dependencies using uv
 uv sync
 
-# Configure Environment
-export GENPULSE_ENV=dev
-export GENPULSE_REDIS__URL=redis://localhost:6379/0
-
-# Run Dev Server (Auto-starts API + Worker + Flower)
+# Run Development Server
+# Starts API, Worker, and Flower automatically
 uv run genpulse dev
 ```
 
 ## 📚 Documentation
 
-See `docs/` for detailed guides:
-*   [API Reference](docs/api.md)
-*   [Deployment Guide](docs/deploy.md)
-*   [Java Integration](docs/dev/java_integration.md)
+Detailed documentation is available in [English](docs/en/) and [Chinese](docs/zh/).
 
-## 🧩 Architecture
+*   [**Architecture Design**](docs/en/architecture_design.md): Understand the core concepts (Handlers, Engines, Clients).
+*   [**API Reference**](docs/en/api.md): Detailed API endpoints and parameter specs.
+*   [**Deployment Guide**](docs/en/deploy.md): How to deploy to production.
+*   [**Java Integration**](docs/en/dev/java_integration.md): Guide for Java clients.
 
-GenPulse uses a decoupled architecture:
-1.  **API Gateway (FastAPI)**: Validates requests and pushes to Redis/Celery.
-2.  **Task Workers (Celery)**: Async consumers that execute long-running AI tasks.
-3.  **Unified Storage**: Abstracts local fs vs S3/OSS.
-4.  **Database (Postgres)**: Durable state storage for tasks.
+## 🧩 System Architecture
 
-## License
+GenPulse adopts a Layered Architecture to decouple business logic from AI implementation details.
 
-MIT
+```mermaid
+graph LR
+    Client -->|HTTP/MQ| API[API Gateway]
+    API -->|Push| Queue[(Message Queue)]
+    Queue -->|Consume| Worker[Celery Worker]
+    
+    subgraph "Execution Layer"
+        Worker -->|Dispatch| H[Handler]
+        H -->|Execute| E_Comfy[Comfy Engine]
+        H -->|Execute| E_Diff[Diffusers Engine]
+        H -->|Call| C_Cloud[Cloud Clients]
+    end
+    
+    subgraph "Providers"
+        E_Comfy --> ComfyUI[ComfyUI Server]
+        C_Cloud --> Volc[VolcEngine]
+        C_Cloud --> Kling[Kling AI]
+        C_Cloud --> Baidu[Baidu Cloud]
+    end
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please check the [Contributing Guide](docs/en/dev/contributing.md) (Coming Soon).
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
