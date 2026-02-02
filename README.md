@@ -80,7 +80,7 @@ Detailed documentation is available in [English](docs/en/) and [Chinese](docs/zh
 *   [**Architecture Design**](docs/en/architecture_design.md): Understand the core concepts (Handlers, Engines, Clients).
 *   [**API Reference**](docs/en/api.md): Detailed API endpoints and parameter specs.
 *   [**Deployment Guide**](docs/en/deploy.md): How to deploy to production.
-*   [**Java Integration**](docs/en/dev/java_integration.md): Guide for Java clients.
+
 
 ## 🧩 System Architecture
 

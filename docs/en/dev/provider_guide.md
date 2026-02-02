@@ -26,63 +26,11 @@ class MyProviderImageParams(BaseModel):
     prompt: str = Field(..., description="Image description")
     model: str = Field("v1", description="Model version")
     
-    model_config = ConfigDict(populate_by_name=True)
+    # Allow extra fields (like 'provider') to be passed without error
+    model_config = ConfigDict(extra='ignore')
 
-class MyProviderResponse(BaseModel):
-    id: str
-    status: str
-    output_url: str = Field(alias="url")
-```
+# ... (Client implementation is fine) ...
 
-### Step 2: Implement the Client (`client.py`)
-
-Create `src/genpulse/clients/<provider>/client.py`.
-Inherit from `BaseClient`.
-
-```python
-from typing import Optional, Dict, Union
-from genpulse.clients.base import BaseClient
-from .schemas import MyProviderImageParams, MyProviderResponse
-
-class MyProviderClient(BaseClient):
-    def __init__(self, api_key: Optional[str] = None):
-        super().__init__(base_url="https://api.myprovider.com/v1")
-        self.api_key = api_key or "ENV_VAR"
-
-    def _get_headers(self) -> Dict[str, str]:
-        return {"Authorization": f"Bearer {self.api_key}"}
-
-    async def generate_image(self, params: MyProviderImageParams, wait: bool = True):
-        # 1. Convert Pydantic to Dict
-        data = params.model_dump(exclude_none=True)
-        
-        # 2. Make Request
-        resp_json = await self._request("POST", "/generations", json=data)
-        
-        # 3. Handle Polling (if async)
-        task_id = resp_json["id"]
-        
-        if wait:
-            return await self.poll_task(
-                task_id=task_id,
-                get_status_func=self.get_task,
-                check_success_func=lambda r: r["status"] == "SUCCEEDED",
-                check_failed_func=lambda r: r["status"] == "FAILED"
-            )
-        return resp_json
-
-    async def get_task(self, task_id: str):
-        return await self._request("GET", f"/generations/{task_id}")
-
-def create_myprovider_client():
-    return MyProviderClient()
-```
-
-### Step 3: Update the Handler
-
-Edit the relevant handler (e.g., `src/genpulse/handlers/image.py`).
-
-```python
 # src/genpulse/handlers/image.py
 
 @registry.register("text-to-image")
@@ -91,11 +39,17 @@ class TextToImageHandler(BaseHandler):
         provider = task["params"].get("provider")
         
         if provider == "myprovider":
+            # Lazy import to avoid circular deps or missing optional libs
             from genpulse.clients.myprovider.client import create_myprovider_client
             from genpulse.clients.myprovider.schemas import MyProviderImageParams
             
             client = create_myprovider_client()
-            params = MyProviderImageParams(**task["params"])
+            
+            # Use model_validate to parse dict
+            try:
+                params = MyProviderImageParams.model_validate(task["params"])
+            except ValidationError as e:
+                raise ValueError(f"Invalid parameters: {e}")
             
             result = await client.generate_image(params)
             

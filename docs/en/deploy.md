@@ -54,6 +54,18 @@ If ComfyUI is running in **another container**:
 *   Ensure both containers are on the same Docker Network.
 *   Set URL to `http://container_name:8188`.
 
+### Provider Credentials (Cloud APIs)
+To use cloud-based AI providers, set the appropriate API keys:
+
+| Provider | Variables |
+|----------|----------|
+| **VolcEngine** | `GENPULSE_PROVIDERS__VOLC_ACCESS_KEY`, `GENPULSE_PROVIDERS__VOLC_SECRET_KEY` |
+| **Kling AI** | `GENPULSE_PROVIDERS__KLING_ACCESS_KEY`, `GENPULSE_PROVIDERS__KLING_SECRET_KEY` |
+| **Baidu** | `GENPULSE_PROVIDERS__BAIDU_ACCESS_KEY`, `GENPULSE_PROVIDERS__BAIDU_SECRET_KEY` |
+| **Minimax** | `GENPULSE_PROVIDERS__MINIMAX_API_KEY`, `GENPULSE_PROVIDERS__MINIMAX_GROUP_ID` |
+| **Tencent** | `GENPULSE_PROVIDERS__TENCENT_SECRET_ID`, `GENPULSE_PROVIDERS__TENCENT_SECRET_KEY` |
+| **DashScope** | `GENPULSE_PROVIDERS__DASHSCOPE_API_KEY` |
+
 ## 3. Monitoring & Administration
 
 ### Admin Dashboard (SQLAdmin)

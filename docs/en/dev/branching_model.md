@@ -33,7 +33,8 @@ Environments are controlled via `ENV` variable and `.env` files.
 GenPulse uses **Dynaconf** for a professional, layered configuration management system.
 
 ### A. `.env` (Environment-Specific & Secrets)
-- **Prefix**: All variables must start with `GENPULSE_` (e.g., `GENPULSE_REDIS__URL`).
+- **Prefix**: Core application settings must start with `GENPULSE_` (e.g., `GENPULSE_REDIS__URL`) to override Dynaconf defaults.
+- **Third-Party Credentials**: Specific SDKs or provider keys (e.g., `TENCENTCLOUD_SECRET_ID`, `KLING_AK`) may assume their own naming conventions without this prefix.
 - **Environment Switcher**: Use `ENV_FOR_DYNACONF` (options: `development`, `testing`, `production`).
 - **Git**: Never committed. Manage via `.env.example`.
 

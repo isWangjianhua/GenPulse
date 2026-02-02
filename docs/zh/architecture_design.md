@@ -83,6 +83,102 @@ src/genpulse/
   │   └── mq/          # 消息队列抽象 (Celery)
 ```
 
+**组件架构图:**
+
+```mermaid
+graph TD
+    subgraph "核心系统 (Core System)"
+        API[API Gateway]
+        Worker[Celery Worker]
+        Registry[Handler 注册表]
+    end
+
+    subgraph "业务逻辑 (Handlers)"
+        ImgH[ImageHandler]
+        VidH[VideoHandler]
+    end
+    
+    subgraph "执行引擎 (Engines)"
+        ComfyE[ComfyEngine]
+        DiffE[DiffusersEngine]
+    end
+    
+    subgraph "资源 (Resources)"
+        Tpl[模板库 (JSON)]
+        Schemas[Pydantic 模型]
+    end
+
+    Worker -->|1. 查找| Registry
+    Registry -->|2. 实例化| ImgH
+    Registry -->|2. 实例化| VidH
+    
+    ImgH -->|3. 验证| Schemas
+    ImgH -->|4. 委托| ComfyE
+    ImgH -->|4. 委托| DiffE
+    
+    ComfyE -->|加载| Tpl
+```
+
+**请求生命周期分析 (时序图):**
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API 网关
+    participant Redis as Redis Broker
+    participant Worker as Celery Worker
+    participant Handler as ImageHandler
+    participant Engine as ComfyEngine
+    participant Comfy as ComfyUI 服务
+    participant S3 as 对象存储
+    participant DB as Postgres DB
+
+    Note over Client, API: 1. 提交阶段
+    Client->>API: POST /task (Type: text-to-image)
+    activate API
+    API->>API: 验证 Schema (TaskRequest)
+    API->>DB: 创建记录 (PENDING)
+    API->>Redis: 推送 Task ID
+    API-->>Client: 返回 {task_id}
+    deactivate API
+
+    Note over Redis, Comfy: 2. 执行阶段
+    Redis->>Worker: 分发任务
+    activate Worker
+    Worker->>DB: 更新状态 (PROCESSING)
+    Worker->>Handler: execute(task)
+    activate Handler
+    
+    Handler->>Engine: execute(task)
+    activate Engine
+    Engine->>Engine: 加载模板 (sdxl_t2i)
+    Engine->>Comfy: POST /prompt (Workflow JSON)
+    activate Comfy
+    
+    loop WebSocket 进度流
+        Comfy-->>Engine: 进度 (10%...90%)
+        Engine-->>Worker: context.set_processing(progress)
+    end
+    
+    Comfy-->>Engine: 二进制图像数据 (SaveImageWebSocket)
+    deactivate Comfy
+    
+    Engine->>S3: 上传图像
+    activate S3
+    S3-->>Engine: 返回 URL
+    deactivate S3
+    
+    Engine-->>Handler: 返回结果 {url}
+    deactivate Engine
+    
+    Handler-->>Worker: 返回结果
+    deactivate Handler
+    
+    Note over Worker, DB: 3. 持久化阶段
+    Worker->>DB: 更新记录 (COMPLETED, result=url)
+    deactivate Worker
+```
+
 **BaseHandler 接口：**
 ```python
 class BaseHandler(ABC):

@@ -64,7 +64,7 @@ class TaskParams(BaseModel):
     Serves as a "surface-level" standard.
     """
     # Core Identity
-    model: str = Field(..., description="Model identifier (e.g. 'kling-v1', 'wan2.5')")
+    model: Optional[str] = Field(None, description="Model identifier (e.g. 'kling-v1', 'wan2.5')")
     
     # Input Content
     prompt: Optional[str] = Field(None, description="Main text prompt")

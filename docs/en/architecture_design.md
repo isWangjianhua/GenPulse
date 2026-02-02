@@ -83,6 +83,102 @@ src/genpulse/
   │   └── mq/          # Message Queue Abstraction (Celery)
 ```
 
+**Component Architecture:**
+
+```mermaid
+graph TD
+    subgraph "Core System"
+        API[API Gateway]
+        Worker[Celery Worker]
+        Registry[Handler Registry]
+    end
+
+    subgraph "Business Logic (Handlers)"
+        ImgH[ImageHandler]
+        VidH[VideoHandler]
+    end
+    
+    subgraph "Execution Engines"
+        ComfyE[ComfyEngine]
+        DiffE[DiffusersEngine]
+    end
+    
+    subgraph "Resources"
+        Tpl[Templates (JSON)]
+        Schemas[Pydantic Models]
+    end
+
+    Worker -->|1. Lookup| Registry
+    Registry -->|2. Instantiate| ImgH
+    Registry -->|2. Instantiate| VidH
+    
+    ImgH -->|3. Validate| Schemas
+    ImgH -->|4. Delegate| ComfyE
+    ImgH -->|4. Delegate| DiffE
+    
+    ComfyE -->|Load| Tpl
+```
+
+**Request Lifecycle Analysis (Sequence Diagram):**
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API Gateway
+    participant Redis as Redis Broker
+    participant Worker as Celery Worker
+    participant Handler as ImageHandler
+    participant Engine as ComfyEngine
+    participant Comfy as ComfyUI Server
+    participant S3 as Object Storage
+    participant DB as Postgres DB
+
+    Note over Client, API: 1. Submission Phase
+    Client->>API: POST /task (Type: text-to-image)
+    activate API
+    API->>API: Validate Schema (TaskRequest)
+    API->>DB: Create Record (PENDING)
+    API->>Redis: Push Task ID
+    API-->>Client: Return {task_id}
+    deactivate API
+
+    Note over Redis, Comfy: 2. Execution Phase
+    Redis->>Worker: Dispatch Task
+    activate Worker
+    Worker->>DB: Update Status (PROCESSING)
+    Worker->>Handler: execute(task)
+    activate Handler
+    
+    Handler->>Engine: execute(task)
+    activate Engine
+    Engine->>Engine: Load Template (sdxl_t2i)
+    Engine->>Comfy: POST /prompt (Workflow JSON)
+    activate Comfy
+    
+    loop WebSocket Stream
+        Comfy-->>Engine: Progress (10%...90%)
+        Engine-->>Worker: context.set_processing(progress)
+    end
+    
+    Comfy-->>Engine: Binary Image Data (SaveImageWebSocket)
+    deactivate Comfy
+    
+    Engine->>S3: Upload Image
+    activate S3
+    S3-->>Engine: Return URL
+    deactivate S3
+    
+    Engine-->>Handler: Return Result {url}
+    deactivate Engine
+    
+    Handler-->>Worker: Return Result
+    deactivate Handler
+    
+    Note over Worker, DB: 3. Persistence Phase
+    Worker->>DB: Update Record (COMPLETED, result=url)
+    deactivate Worker
+```
+
 **BaseHandler Interface:**
 ```python
 class BaseHandler(ABC):

@@ -78,9 +78,9 @@ uv run genpulse dev
 详细文档请参阅 [英文文档](docs/en/) 和 [中文文档](docs/zh/)。
 
 *   [**架构设计**](docs/zh/architecture_design.md): 理解核心可概念 (Handlers, Engines, Clients)。
-*   [**API 参考**](docs/en/api.md): 详细的 API 端点和参数说明 (英文)。
-*   [**部署指南**](docs/en/deploy.md): 生产环境部署指南 (英文)。
-*   [**Java 集成**](docs/en/dev/java_integration.md): Java 客户端开发指南 (英文)。
+*   [**API 参考**](docs/zh/api.md): 详细的 API 端点和参数说明 (英文)。
+*   [**部署指南**](docs/zh/deploy.md): 生产环境部署指南 (英文)。
+
 
 ## 🧩 系统架构
 

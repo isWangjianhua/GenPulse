@@ -5,35 +5,33 @@ This document outlines the strategic direction for GenPulse's development.
 ## Phase 1: Foundation & Connectivity (Completed)
 - [x] Basic Async Architecture (FastAPI + Redis + Postgres)
 - [x] Robust Logging & Error Handling
-- [x] Local Diffusers Engine (Mock Mode)
-- [x] **Multi-Provider Support**: 7+ Cloud Providers integrated (Volc, Tencent, Baidu, Kling, Minimax, DashScope).
-- [x] **Client Abstraction Layer**: `BaseClient` with unified polling and error handling.
-- [x] **MQ Abstraction Layer**: `BaseMQ` and `RedisMQ`/`CeleryMQ` implementation.
-- [x] **Rate Limiting**: Distributed token bucket limiter per provider.
-- [x] **Standardized Schemas**: Pydantic models for all external API interactions.
+- [x] Local Diffusers Engine
+- [x] **Multi-Provider Support**: 7+ Cloud Providers integrated.
+- [x] **Client Abstraction Layer**: `BaseClient`.
+- [x] **MQ Abstraction Layer**: `Celery` Integration.
+- [x] **Rate Limiting**: Distributed token bucket limiter.
 
-## Phase 2: Orchestration & Robustness (Current Focus)
-### 1. Advanced Message Queueing (Architecture Upgrade)
-- [x] **Celery Integration**: Adopted as primary worker runtime (Redis Broker).
-- [x] **Dual-Mode Support**: Implemented HTTP Polling + Direct RPC Microservice pattern.
-- [ ] **Message Reliability**: DLQ and Retry policies (Native in Celery, configuration tuning needed).
+## Phase 2: Orchestration & Robustness (Completed)
+### 1. ComfyUI Deep Integration
+- [x] **ComfyEngine**: Dedicated engine for WebSocket communication.
+- [x] **Template System**: JSON-based workflow templates (`template_name`).
+- [x] **High Performance**: `SaveImageWebsocket` binary capture.
 
+### 2. Unified Handlers
+- [x] **Generic Dispatchers**: `ImageHandler` and `VideoHandler` routing to correct Providers or Engines.
+- [x] **Dual-Mode Support**: HTTP Polling + Direct RPC.
+- [x] **Unified Storage**: S3/OSS auto-upload.
 
-### 2. API Generation & SDK
-- [ ] **OpenAPI Spec**: Auto-generate complete OpenAPI/Swagger documentation.
-- [ ] **Client SDK Generator**: Use `openapi-generator` to build Python/JS SDKs for GenPulse consumers.
+## Phase 3: Developer Experience (Current Focus)
+### 1. Web Dashboard
+A visual interface for users to try out generation capabilities.
+- [ ] Next.js / React Frontend.
+- [ ] Real-time progress bars.
+- [ ] Asset Gallery.
 
-### 3. Video Capability Expansion
-- [ ] Unified `VideoHandler` capable of complex workflows (e.g., upscaling).
-- [ ] "Image-to-Video" automatic adapter pipelines.
-
-## Phase 3: User Experience (Next Up)
-### 1. Web Dashboard (High Priority)
-A visual interface to monitor the system in real-time.
-- **Features**:
-    - Live Task Queue visualization.
-    - Asset Gallery.
-    - System Health metrics.
+### 2. SDK Generation
+- [ ] **OpenAPI Spec**: Refine for SDK generation.
+- [ ] **Client SDKs**: Python/TypeScript client libraries.
 
 ## Phase 4: Enterprise Features (Q4 2026)
 - [ ] **Multi-Tenant Support**: API Key management per user.

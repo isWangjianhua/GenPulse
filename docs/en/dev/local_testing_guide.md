@@ -58,7 +58,7 @@ To test the synchronous-like RPC capabilities (Direct MQ interaction without HTT
 2.  **Run the Example Client**:
     ```bash
     # This script bypasses the API and talks directly to Redis
-    python examples/direct_mq_client.py "Test prompt from RPC"
+    uv run python examples/direct_mq_client.py "Test prompt from RPC"
     ```
 
 3.  **Result**: You should see the script push the task, wait (displaying a progress bar), and then print the final JSON result once the worker completes the job.
