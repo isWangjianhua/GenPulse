@@ -1,173 +1,138 @@
 import asyncio
-import json
+import io
 import uuid
-import aiohttp
+import json
 from typing import Any, Dict, List, Optional
-import httpx
+from loguru import logger
+
 from genpulse.handlers.base import BaseHandler
 from genpulse.handlers.registry import registry
 from genpulse.types import TaskContext, EngineError
-from genpulse.utils.comfy import parse_workflow_template, apply_params
 from genpulse import config
 from genpulse.infra.storage import get_storage
-from loguru import logger
-import io
+from genpulse.clients.comfyui.client import ComfyClient, ComfyClientError
+
+# Import our new template helpers
+from genpulse.utils.comfy import parse_workflow_template, apply_params, load_template
 
 @registry.register("comfy-workflow")
 class ComfyUIHandler(BaseHandler):
     """
-    Handler for executing ComfyUI workflows using WebSocket for real-time progress 
-    and binary image retrieval.
+    Refactored ComfyUI Handler.
+    Leverages ComfyClient for communication and Template system for workflow generation.
     """
     
     def validate_params(self, params: Dict[str, Any]) -> bool:
-        if "workflow" not in params:
-            logger.error("ComfyUIHandler: 'workflow' field missing in params.")
+        if "workflow" not in params and "template_name" not in params:
+            logger.error("ComfyUIHandler: Neither 'workflow' nor 'template_name' provided.")
             return False
-            
-        workflow = params["workflow"]
-        if "nodes" in workflow and "links" in workflow:
-            logger.error("Invalid Workflow Format: Received Web UI JSON. Please export as API Format (Prompt Format).")
-            return False
-            
         return True
 
     async def execute(self, task_data: Dict[str, Any], context: TaskContext) -> Dict[str, Any]:
         params = task_data.get("params", {})
-        workflow = params.get("workflow")
+        
+        # 1. Determine Server Address
+        server_address = params.get("server_address", config.COMFY_URL or "http://127.0.0.1:8188")
+        
+        # 2. Prepare Workflow
+        workflow = {}
         inputs = params.get("inputs", {})
         
-        # Determine server address
-        server_address = params.get("server_address") or config.COMFY_URL
-        if not server_address:
-             raise EngineError("ComfyUI URL not configured", provider="comfyui")
-        server_address = server_address.rstrip('/')
-        
-        # Parse Host for WebSocket
-        ws_address = server_address.replace("http://", "ws://").replace("https://", "wss://")
-
-        # 1. Parse & Inject
         try:
-            schema = parse_workflow_template(workflow)
-            logger.info(f"ComfyUI Task {task_data['task_id']}: Found inputs {[p.name for p in schema]}")
-            final_workflow = apply_params(workflow, inputs, schema)
-        except Exception as e:
-            raise EngineError(f"Workflow parsing failed: {e}", provider="comfyui")
-
-        # 2. Connect & Submit
-        client_id = str(uuid.uuid4())
-        prompt_id = None
-        images_result = []
-        storage = get_storage()
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                ws_url = f"{ws_address}/ws?clientId={client_id}"
-                logger.info(f"Connecting to WS: {ws_url}")
+            if "template_name" in params:
+                template_name = params["template_name"]
+                logger.info(f"Loading ComfyUI Template: {template_name}")
+                workflow_template = load_template(template_name)
                 
-                async with session.ws_connect(ws_url) as ws:
-                    # Submit Prompt
-                    payload = {"prompt": final_workflow, "client_id": client_id}
-                    async with session.post(f"{server_address}/prompt", json=payload) as resp:
-                        if resp.status != 200:
-                            err_text = await resp.text()
-                            raise EngineError(f"ComfyUI Submit Failed: {err_text}", provider="comfyui")
-                        prompt_res = await resp.json()
-                        prompt_id = prompt_res.get("prompt_id")
-                        logger.info(f"ComfyUI Queued: {prompt_id}")
-                        await context.set_processing(5, info="Queued")
-
-                    # Listen to WebSocket
-                    current_node = ""
-                    # We loop until execution_success or disconnected
-                    async for msg in ws:
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            message = json.loads(msg.data)
-                            msg_type = message.get("type")
-                            data = message.get("data", {})
-                            
-                            # Filter messages only for our prompt if possible?
-                            # ComfyUI sends broadcast messages, but usually filtered by client_id if connected?
-                            # Actually /ws?clientId=... means we only get messages for OUR client_id usually?
-                            # Wait, 'executing' gives 'node' and 'prompt_id'.
-                            
-                            if msg_type == "executing":
-                                if data.get("node") is None and data.get("prompt_id") == prompt_id:
-                                    # Execution finished for this prompt
-                                    logger.info("ComfyUI Execution Finished (WS Signal)")
-                                    break
-                                elif data.get("prompt_id") == prompt_id:
-                                    # Node started
-                                    current_node = data.get("node")
-                                    # Calculate vague progress... simple increment?
-                                    await context.set_processing(None, info=f"Running Node {current_node}")
-
-                            elif msg_type == "progress":
-                                if data.get("prompt_id") == prompt_id:
-                                    val = data.get("value")
-                                    max_val = data.get("max")
-                                    if max_val:
-                                        p = int((val / max_val) * 100)
-                                        await context.set_processing(p, info=f"Node {current_node} {p}%")
-                                        
-                            elif msg_type == "execution_cached":
-                                if data.get("prompt_id") == prompt_id:
-                                    logger.info("ComfyUI used cached result")
-                                    break
-
-                        elif msg.type == aiohttp.WSMsgType.BINARY:
-                            # This is a Preview/SaveWebsocket image!
-                            # First 8 bytes are type/event info usually?
-                            # ComfyUI protocol:
-                            # The binary message starts with a 4-byte integer (big-endian) specifying the event type?
-                            # Standard PreviewImage: Just raw bytes? 
-                            # Actually, standard logic is: Prepend text header?
-                            # Let's assume standard PreviewImage behavior:
-                            # It comes as binary with first 4 bytes as Type (1=JPEG, 2=PNG) then data.
-                            # We can just check header or assume image.
-                            
-                            image_data = msg.data[8:] # Skip offset (8 bytes usually: 4 type, 4 params?)
-                            # Actually, for simplicity we treat it as blob.
-                            
-                            # Upload to Unified Storage
-                            fname = f"comfy/{task_data['task_id']}/{uuid.uuid4()}.png"
-                            url = await storage.upload(fname, io.BytesIO(image_data), content_type="image/png")
-                            images_result.append(url)
-                            logger.info(f"Captured binary image via WS: {url}")
-
-            # 3. Post-Processing: Explicit History Check (Fallback)
-            # If we didn't get any binary images (maybe standard SaveImage node used), check history.
-            if not images_result:
-                async with httpx.AsyncClient() as client:
-                    hist_resp = await client.get(f"{server_address}/history/{prompt_id}")
-                    if hist_resp.status_code == 200:
-                        history_data = hist_resp.json()
-                        if prompt_id in history_data:
-                            outputs = history_data[prompt_id].get("outputs", {})
-                            for _, output_val in outputs.items():
-                                if "images" in output_val:
-                                    for img in output_val["images"]:
-                                        # Download from ComfyUI View API and Upload to S3
-                                        fname = img.get("filename")
-                                        subfolder = img.get("subfolder", "")
-                                        img_type = img.get("type", "output")
-                                        
-                                        view_url = f"{server_address}/view?filename={fname}&subfolder={subfolder}&type={img_type}"
-                                        logger.info(f"Downloading from ComfyUI: {view_url}")
-                                        
-                                        img_resp = await client.get(view_url)
-                                        if img_resp.status_code == 200:
-                                            s3_key = f"comfy/{task_data['task_id']}/{fname}"
-                                            s3_url = await storage.upload(s3_key, io.BytesIO(img_resp.content), content_type=img_resp.headers.get("content-type"))
-                                            images_result.append(s3_url)
-
+                # Auto-inject params
+                # We merge top-level params (like prompt) into inputs if not present
+                system_keys = {"provider", "template_name", "server_address", "workflow", "inputs"}
+                merged_inputs = {k: v for k, v in params.items() if k not in system_keys}
+                merged_inputs.update(inputs) 
+                
+                # Parse schema from template to find dynamic fields
+                schema = parse_workflow_template(workflow_template)
+                workflow = apply_params(workflow_template, merged_inputs, schema)
+                
+            elif "workflow" in params:
+                # Raw mode
+                workflow = params["workflow"]
+                schema = parse_workflow_template(workflow)
+                workflow = apply_params(workflow, inputs, schema)
+            else:
+                raise EngineError("No valid workflow definition found", provider="comfyui")
+                
         except Exception as e:
-            raise EngineError(f"ComfyUI Execution Error: {e}", provider="comfyui")
+            raise EngineError(f"Workflow preparation failed: {e}", provider="comfyui")
+
+        # 3. Execution
+        client = ComfyClient(base_url=server_address)
+        storage = get_storage()
+        images_result = []
+        prompt_id = None
+        
+        # Simple health check
+        if not await client.check_health():
+             # Try one more time? or just fail.
+             logger.warning(f"ComfyUI at {server_address} seems unreachable, trying anyway...")
+
+        try:
+            # Quit Prompt
+            prompt_id = await client.queue_prompt(workflow)
+            logger.info(f"ComfyUI Queued: {prompt_id}")
+            await context.set_processing(10, info="Queued")
+            
+            # Listen for progress via Client Generator
+            async for msg in client.listen_progress(prompt_id):
+                if msg["type"] == "progress":
+                    val = msg.get("value", 0)
+                    m = msg.get("max", 1)
+                    if m > 0:
+                        p = 10 + int((val / m) * 80) # Map 0-100 to 10-90
+                        node = msg.get("node", "?")
+                        await context.set_processing(p, info=f"Running Node {node}")
+                
+                elif msg["type"] == "binary_image":
+                    # Instant upload of WS image (SaveImageWebsocket)
+                    img_data = msg["data"]
+                    fname = f"comfy/{task_data['task_id']}/{uuid.uuid4()}.png"
+                    url = await storage.upload(fname, io.BytesIO(img_data), content_type="image/png")
+                    images_result.append(url)
+                    logger.info(f"Captured binary image: {url}")
+                
+                elif msg["type"] == "error":
+                     raise EngineError(f"ComfyUI WS Error: {msg['message']}", provider="comfyui")
+            
+            # 4. Fallback: If no binary images captured, check history (Standard SaveImage Node)
+            if not images_result:
+                logger.info("No WS images captured, checking history for outputs...")
+                history = await client.get_history(prompt_id)
+                if prompt_id in history:
+                    outputs = history[prompt_id].get("outputs", {})
+                    for _, output_val in outputs.items():
+                         if "images" in output_val:
+                             for img in output_val["images"]:
+                                 fname = img["filename"]
+                                 subfolder = img["subfolder"]
+                                 ftype = img["type"]
+                                 # Use client helper to fetch raw bytes
+                                 raw = await client.get_image(fname, subfolder, ftype)
+                                 
+                                 s3_key = f"comfy/{task_data['task_id']}/{fname}"
+                                 url = await storage.upload(s3_key, io.BytesIO(raw), content_type="image/png")
+                                 images_result.append(url)
+
+        except ComfyClientError as e:
+            raise EngineError(f"ComfyUI Client Error: {e}", provider="comfyui")
+        except Exception as e:
+            logger.exception("ComfyUI Execution Failed")
+            raise EngineError(f"Unexpected Error: {e}", provider="comfyui")
 
         await context.set_processing(100, info="Completed")
         
         return {
             "prompt_id": prompt_id,
             "images": images_result,
-            "image_url": images_result[0] if images_result else None
+            "image_url": images_result[0] if images_result else None,
+            "count": len(images_result)
         }
