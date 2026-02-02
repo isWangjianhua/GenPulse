@@ -8,7 +8,19 @@ from genpulse.infra.mq.celery_app import celery_app
 from genpulse.processing import TaskProcessor
 
 
-from genpulse.types import RateLimitExceeded, TransientError
+from celery.exceptions import MaxRetriesExceededError
+from loguru import logger
+from genpulse import config
+
+@celery_app.task(name="genpulse.tasks.log_failure", queue=config.DLQ_QUEUE_NAME)
+def log_failure(task_json: str, error_msg: str):
+    """
+    Task that resides in the DLQ. 
+    It logs the failure and allows for manual inspection/retry later.
+    """
+    logger.error(f"DLQ: Task permanently failed. Error: {error_msg}")
+    # In a real production system, you might save this to a 'failed_tasks' DB table here.
+    return {"status": "failed", "error": error_msg}
 
 @celery_app.task(name="genpulse.tasks.execute_task", bind=True)
 def execute_task(self, task_json: str):
@@ -39,6 +51,22 @@ def execute_task(self, task_json: str):
     except TransientError as exc:
         # Exponential backoff: 2, 4, 8, 16...
         backoff = exc.retry_after * (2 ** self.request.retries)
-        raise self.retry(exc=exc, countdown=backoff, max_retries=3)
-    finally:
-        pass
+        try:
+            raise self.retry(exc=exc, countdown=backoff, max_retries=3)
+        except MaxRetriesExceededError:
+            logger.error(f"Task {self.request.id} max retries exceeded. Moving to DLQ.")
+            celery_app.send_task(
+                "genpulse.tasks.log_failure",
+                args=[task_json, f"Max retries exceeded: {str(exc)}"],
+                queue=config.DLQ_QUEUE_NAME
+            )
+            raise
+    except Exception as exc:
+        # Unexpected errors -> DLQ immediately
+        logger.error(f"Task {self.request.id} failed with unexpected error. Moving to DLQ.")
+        celery_app.send_task(
+            "genpulse.tasks.log_failure", 
+            args=[task_json, f"Unexpected error: {str(exc)}"],
+            queue=config.DLQ_QUEUE_NAME
+        )
+        raise
