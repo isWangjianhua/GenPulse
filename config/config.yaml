@@ -1,13 +1,16 @@
-# --- GenPulse Configuration (Shared Defaults) ---
+   # --- GenPulse Configuration (Shared Defaults) ---
 # Environment-specific overrides can be placed in development:, production:, or test:
 
 default:
   # Message Queue Settings
   mq:
-    type: "redis"  # Options: redis, rabbitmq, celery
-    rabbitmq_url: "amqp://guest:guest@localhost:5672/"
+    type: "celery"
     celery_broker_url: "redis://localhost:6379/0"
     celery_result_backend: "redis://localhost:6379/1"
+    
+    # Internal Queues (Optional overrides)
+    main_queue: "genpulse_tasks"
+    dlq_queue: "genpulse_dlq"
   
   # Rate Limits (requests per second)
   ratelimits:
@@ -15,10 +18,6 @@ default:
     tencent: 2.0
     volcengine: 5.0
     kling: 1.0
-  
-  # Redis Queue settings
-  redis:
-    task_queue_name: "tasks:pending"
 
   # Storage Settings
   storage:
