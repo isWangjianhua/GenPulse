@@ -35,7 +35,7 @@ async def create_task(req: TaskRequest):
     task_data = {
         "task_id": task_id,
         "task_type": req.task_type,
-        "provider": req.provider,
+        "provider": req.params.provider,
         "params": processed_params,
         "priority": req.priority,
         "callback_url": req.callback_url

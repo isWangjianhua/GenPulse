@@ -40,7 +40,11 @@ class DashScopeClient(BaseClient):
         )
         
         # Normalize SDK response to dict
-        data = response.to_dict() if hasattr(response, 'to_dict') else response
+        try:
+            data = dict(response)  # DashScope response is dict-like
+        except:
+            data = {}
+        
         output = data.get("output", {})
         task_status = output.get("task_status", "UNKNOWN")
         
@@ -163,7 +167,10 @@ class DashScopeClient(BaseClient):
         )
         
         # 3. Map Response
-        data = response.to_dict() if hasattr(response, 'to_dict') else response
+        try:
+            data = dict(response)
+        except:
+            data = {}
         
         if response.status_code != 200:
             logger.error(f"DashScope: Image edit failed: {response.message}")
@@ -198,7 +205,10 @@ class DashScopeClient(BaseClient):
             VideoSynthesis.fetch,
             task=task_id
         )
-        data = response.to_dict() if hasattr(response, 'to_dict') else response
+        try:
+            data = dict(response)
+        except:
+            data = {}
         output = data.get("output", {})
         task_status = output.get("task_status", "UNKNOWN")
         
