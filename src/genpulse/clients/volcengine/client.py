@@ -91,7 +91,8 @@ class VolcEngineClient(BaseClient):
         """
         # 1. Create the task
         request = VolcVideoParams(**params) if isinstance(params, dict) else params
-        request_data = request.model_dump(exclude_none=True, mode="json")
+        # Use exclude_defaults to avoid sending unsupported parameters like generate_audio=False
+        request_data = request.model_dump(exclude_none=True, exclude_defaults=True, mode="json")
         
         logger.info(f"Volcengine: Creating video generation task: {request_data}")
         

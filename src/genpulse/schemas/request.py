@@ -1,49 +1,148 @@
 from typing import Literal, Union, Optional
 from typing_extensions import Annotated
 from pydantic import BaseModel, Field
-from .params import VolcParams, KlingParams, MinimaxParams, DashScopeParams, MockParams, ComfyParams
+
+from .params import (
+    # Video params
+    VolcVideoParams,
+    KlingTextToVideoParams,
+    KlingImageToVideoParams,
+    MinimaxTextToVideoParams,
+    MinimaxImageToVideoParams,
+    DashScopeVideoParams,
+    BaiduTextToVideoParams,
+    BaiduImageToVideoParams,
+    TencentVideoParams,
+    # Image params
+    VolcImageParams,
+    MinimaxImageParams,
+    DashScopeImageParams,
+    BaiduImageParams,
+    TencentImageParams,
+    # Special
+    ComfyParams,
+    MockParams,
+)
+
+
+# ============================================================================
+# Base Request
+# ============================================================================
 
 class BaseRequest(BaseModel):
-    task_type: str = Field(..., description="Type of task to execute (e.g., 'text-to-video', 'image-to-video', 'comfy-workflow').")
+    """Base request with common fields."""
     priority: str = Field("normal", description="Execution priority: 'high', 'normal', 'low'.")
     callback_url: Optional[str] = Field(None, description="Webhook URL to call when task completes.")
 
-# --- Specific Requests ---
 
-class VolcRequest(BaseRequest):
-    provider: Literal["volcengine"] = Field(description="Use VolcEngine provider.")
-    params: VolcParams
+# ============================================================================
+# Text-to-Video Request
+# ============================================================================
 
-class KlingRequest(BaseRequest):
-    provider: Literal["kling"] = Field(description="Use Kling AI provider.")
-    params: KlingParams
+TextToVideoParams = Annotated[
+    Union[
+        VolcVideoParams,
+        KlingTextToVideoParams,
+        MinimaxTextToVideoParams,
+        DashScopeVideoParams,
+        BaiduTextToVideoParams,
+        TencentVideoParams,
+        MockParams,
+    ],
+    Field(discriminator="provider")
+]
 
-class MinimaxRequest(BaseRequest):
-    provider: Literal["minimax"] = Field(description="Use Minimax provider.")
-    params: MinimaxParams
+class TextToVideoRequest(BaseRequest):
+    """Request for Text-to-Video generation."""
+    task_type: Literal["text-to-video"] = "text-to-video"
+    params: TextToVideoParams
 
-class DashScopeRequest(BaseRequest):
-    provider: Literal["dashscope"] = Field(description="Use DashScope (Alibaba) provider.")
-    params: DashScopeParams
 
-class ComfyRequest(BaseRequest):
-    provider: Literal["comfyui"] = Field(description="Execute a raw ComfyUI workflow.")
+# ============================================================================
+# Image-to-Video Request
+# ============================================================================
+
+ImageToVideoParams = Annotated[
+    Union[
+        VolcVideoParams,  # Volc uses same schema for T2V and I2V (via content field)
+        KlingImageToVideoParams,
+        MinimaxImageToVideoParams,
+        DashScopeVideoParams,  # DashScope I2V uses first_frame_url
+        BaiduImageToVideoParams,
+        TencentVideoParams,  # Tencent uses FileInfos for I2V
+        MockParams,
+    ],
+    Field(discriminator="provider")
+]
+
+class ImageToVideoRequest(BaseRequest):
+    """Request for Image-to-Video generation."""
+    task_type: Literal["image-to-video"] = "image-to-video"
+    params: ImageToVideoParams
+
+
+# ============================================================================
+# Text-to-Image Request
+# ============================================================================
+
+TextToImageParams = Annotated[
+    Union[
+        VolcImageParams,
+        MinimaxImageParams,
+        DashScopeImageParams,
+        BaiduImageParams,
+        TencentImageParams,
+        MockParams,
+    ],
+    Field(discriminator="provider")
+]
+
+class TextToImageRequest(BaseRequest):
+    """Request for Text-to-Image generation."""
+    task_type: Literal["text-to-image"] = "text-to-image"
+    params: TextToImageParams
+
+
+# ============================================================================
+# Image-to-Image Request
+# ============================================================================
+
+ImageToImageParams = Annotated[
+    Union[
+        VolcImageParams,  # Volc uses 'image' field for I2I
+        BaiduImageParams,  # Baidu I2I uses 'image' + 'strength'
+        MockParams,
+    ],
+    Field(discriminator="provider")
+]
+
+class ImageToImageRequest(BaseRequest):
+    """Request for Image-to-Image generation."""
+    task_type: Literal["image-to-image"] = "image-to-image"
+    params: ImageToImageParams
+
+
+# ============================================================================
+# ComfyUI Workflow Request
+# ============================================================================
+
+class ComfyWorkflowRequest(BaseRequest):
+    """Request for direct ComfyUI workflow execution."""
+    task_type: Literal["comfy-workflow"] = "comfy-workflow"
     params: ComfyParams
 
-class MockRequest(BaseRequest):
-    provider: Literal["mock"] = Field(description="Use Mock provider for testing.")
-    params: MockParams
 
-# --- Union Type ---
+# ============================================================================
+# Unified Task Request (discriminated union by task_type)
+# ============================================================================
 
 TaskRequest = Annotated[
     Union[
-        VolcRequest, 
-        KlingRequest, 
-        MinimaxRequest, 
-        DashScopeRequest, 
-        ComfyRequest,
-        MockRequest
+        TextToVideoRequest,
+        ImageToVideoRequest,
+        TextToImageRequest,
+        ImageToImageRequest,
+        ComfyWorkflowRequest,
     ],
-    Field(discriminator="provider")
+    Field(discriminator="task_type")
 ]

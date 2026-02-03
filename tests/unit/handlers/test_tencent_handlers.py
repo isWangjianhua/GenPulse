@@ -152,6 +152,7 @@ async def test_tencent_handler_error_handling():
         mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_response.is_succeeded = False
+        mock_response.message = "API Error: Invalid parameters"
         mock_response.AigcImageTask = MagicMock()
         mock_response.AigcImageTask.Message = "API Error: Invalid parameters"
         

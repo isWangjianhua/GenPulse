@@ -25,7 +25,7 @@ async def test_queue_prompt():
         assert "client_id" in kwargs["json"]
 
 @pytest.mark.asyncio
-async def test_wait_for_completion():
+async def test_wait_for_images():
     client = ComfyClient("http://127.0.0.1:8188")
     prompt_id = "prompt_123"
     
@@ -56,7 +56,7 @@ async def test_wait_for_completion():
     with patch("websockets.connect", return_value=MagicMock(__aenter__=AsyncMock(return_value=mock_ws))):
         with patch.object(client, "get_history", AsyncMock(return_value=history)):
             with patch.object(client, "get_image", AsyncMock(return_value=b"fake_image_bytes")):
-                images = await client.wait_for_completion(prompt_id)
+                images = await client.wait_for_images(prompt_id)
                 
                 assert len(images) == 1
                 assert images[0] == b"fake_image_bytes"
